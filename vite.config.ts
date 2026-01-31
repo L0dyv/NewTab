@@ -30,7 +30,8 @@ export default defineConfig(() => ({
           }
         },
         { src: 'public/favicon.ico', dest: '.' },
-        { src: 'background.js', dest: '.' }
+        { src: 'background.js', dest: '.' },
+        { src: 'content/google-to-kagi.js', dest: 'content' }
       ]
     })
   ],
