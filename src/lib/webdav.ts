@@ -84,44 +84,201 @@ const hex = (buf: ArrayBuffer | Uint8Array) => {
     return s
 }
 
-const md5 = async (str: string) => {
-    const data = new TextEncoder().encode(str)
-    const digest = await crypto.subtle.digest('MD5', data)
-    return hex(digest)
+const md5RotateLeft = (x: number, c: number) => ((x << c) | (x >>> (32 - c))) >>> 0
+
+// Browser WebCrypto does not support MD5, so Digest auth needs a local implementation.
+const md5 = (input: string) => {
+    const msg = new TextEncoder().encode(input)
+    const bitLen = msg.length * 8
+    const totalLen = ((((msg.length + 8) >> 6) + 1) << 6) >>> 0
+    const data = new Uint8Array(totalLen)
+    data.set(msg)
+    data[msg.length] = 0x80
+    const dv = new DataView(data.buffer)
+    dv.setUint32(totalLen - 8, bitLen >>> 0, true)
+    dv.setUint32(totalLen - 4, Math.floor(bitLen / 0x100000000) >>> 0, true)
+
+    let a0 = 0x67452301
+    let b0 = 0xefcdab89
+    let c0 = 0x98badcfe
+    let d0 = 0x10325476
+
+    const s = [
+        7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+        5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+        4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+        6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
+    ]
+    const k = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0)
+
+    for (let i = 0; i < totalLen; i += 64) {
+        const m = new Uint32Array(16)
+        for (let j = 0; j < 16; j++) m[j] = dv.getUint32(i + j * 4, true)
+
+        let a = a0
+        let b = b0
+        let c = c0
+        let d = d0
+
+        for (let j = 0; j < 64; j++) {
+            let f = 0
+            let g = 0
+            if (j < 16) {
+                f = (b & c) | (~b & d)
+                g = j
+            } else if (j < 32) {
+                f = (d & b) | (~d & c)
+                g = (5 * j + 1) % 16
+            } else if (j < 48) {
+                f = b ^ c ^ d
+                g = (3 * j + 5) % 16
+            } else {
+                f = c ^ (b | ~d)
+                g = (7 * j) % 16
+            }
+
+            const tmp = d
+            d = c
+            c = b
+            const sum = (a + f + k[j] + m[g]) >>> 0
+            b = (b + md5RotateLeft(sum, s[j])) >>> 0
+            a = tmp
+        }
+
+        a0 = (a0 + a) >>> 0
+        b0 = (b0 + b) >>> 0
+        c0 = (c0 + c) >>> 0
+        d0 = (d0 + d) >>> 0
+    }
+
+    const out = new Uint8Array(16)
+    const outDv = new DataView(out.buffer)
+    outDv.setUint32(0, a0, true)
+    outDv.setUint32(4, b0, true)
+    outDv.setUint32(8, c0, true)
+    outDv.setUint32(12, d0, true)
+    return hex(out)
 }
 
 const parseDigest = (header: string) => {
     const m = header.replace(/^\s*Digest\s+/i, '')
     const parts: Record<string, string> = {}
-    m.split(/,\s*/).forEach(kv => {
-        const idx = kv.indexOf('=')
-        if (idx > 0) {
-            const k = kv.slice(0, idx).trim()
-            let v = kv.slice(idx + 1).trim()
-            if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1)
-            parts[k] = v
+    let i = 0
+    while (i < m.length) {
+        while (i < m.length && (m[i] === ',' || /\s/.test(m[i]))) i++
+        if (i >= m.length) break
+
+        let key = ''
+        while (i < m.length && m[i] !== '=' && m[i] !== ',') {
+            key += m[i]
+            i++
         }
-    })
+        key = key.trim()
+        if (!key || i >= m.length || m[i] !== '=') {
+            while (i < m.length && m[i] !== ',') i++
+            continue
+        }
+
+        i++
+        let value = ''
+        if (m[i] === '"') {
+            i++
+            while (i < m.length) {
+                const ch = m[i]
+                if (ch === '\\' && i + 1 < m.length) {
+                    value += m[i + 1]
+                    i += 2
+                    continue
+                }
+                if (ch === '"') {
+                    i++
+                    break
+                }
+                value += ch
+                i++
+            }
+        } else {
+            while (i < m.length && m[i] !== ',') {
+                value += m[i]
+                i++
+            }
+            value = value.trim()
+        }
+        parts[key] = value
+        while (i < m.length && m[i] !== ',') i++
+        if (m[i] === ',') i++
+    }
+
     return parts
 }
 
-const buildDigestAuth = async (method: string, url: string, username: string, password: string, challenge: Record<string, string>) => {
+const pickDigestQop = (rawQop?: string) => {
+    if (!rawQop) return ''
+    const qops = rawQop.split(',').map(v => v.trim().replace(/^"|"$/g, '')).filter(Boolean)
+    if (qops.includes('auth')) return 'auth'
+    if (qops.includes('auth-int')) return 'auth-int'
+    return qops[0] || ''
+}
+
+const quoteDigestValue = (v: string) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+
+const buildDigestAuth = (method: string, url: string, username: string, password: string, body: BodyInit | null, challenge: Record<string, string>) => {
     const u = new URL(url)
     const uri = u.pathname + (u.search || '')
     const realm = challenge.realm || ''
     const nonce = challenge.nonce || ''
-    const qop = (challenge.qop || '').split(',')[0]?.trim() || 'auth'
+    const qop = pickDigestQop(challenge.qop)
     const opaque = challenge.opaque
-    const algorithm = (challenge.algorithm || 'MD5').toUpperCase()
+    const algorithmRaw = challenge.algorithm?.trim() || ''
+    const algorithm = algorithmRaw ? algorithmRaw.toUpperCase() : 'MD5'
     const cnonce = hex(crypto.getRandomValues(new Uint8Array(16)))
     const nc = '00000001'
-    const ha1 = await md5(`${username}:${realm}:${password}`)
-    const ha2 = await md5(`${method}:${uri}`)
-    const response = await md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
-    let auth = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}", qop=${qop}, nc=${nc}, cnonce="${cnonce}"`
-    if (opaque) auth += `, opaque="${opaque}"`
-    if (algorithm) auth += `, algorithm=${algorithm}`
-    return auth
+    if (qop && qop !== 'auth' && qop !== 'auth-int') {
+        throw new Error(`暂不支持 Digest qop: ${qop}`)
+    }
+
+    let ha1 = md5(`${username}:${realm}:${password}`)
+    if (algorithm === 'MD5-SESS') {
+        ha1 = md5(`${ha1}:${nonce}:${cnonce}`)
+    } else if (algorithm !== 'MD5') {
+        throw new Error(`不支持的 Digest 算法: ${algorithmRaw}`)
+    }
+    let ha2 = md5(`${method}:${uri}`)
+    if (qop === 'auth-int') {
+        let entityBody = ''
+        if (typeof body === 'string') {
+            entityBody = body
+        } else if (body instanceof URLSearchParams) {
+            entityBody = body.toString()
+        } else if (body !== null) {
+            throw new Error('Digest auth-int 仅支持字符串请求体')
+        }
+        ha2 = md5(`${method}:${uri}:${md5(entityBody)}`)
+    }
+    const response = qop
+        ? md5(`${ha1}:${nonce}:${nc}:${cnonce}:${qop}:${ha2}`)
+        : md5(`${ha1}:${nonce}:${ha2}`)
+
+    const pairs = [
+        `Digest username="${quoteDigestValue(username)}"`,
+        `realm="${quoteDigestValue(realm)}"`,
+        `nonce="${quoteDigestValue(nonce)}"`,
+        `uri="${quoteDigestValue(uri)}"`,
+        `response="${response}"`,
+    ]
+    if (opaque) pairs.push(`opaque="${quoteDigestValue(opaque)}"`)
+    if (algorithmRaw) pairs.push(`algorithm=${algorithmRaw}`)
+    if (qop) {
+        pairs.push(`qop=${qop}`)
+        pairs.push(`nc=${nc}`)
+        pairs.push(`cnonce="${cnonce}"`)
+    }
+    return pairs.join(', ')
+}
+
+const extractDigestChallenge = (header: string) => {
+    const idx = header.search(/Digest\s+/i)
+    return idx >= 0 ? header.slice(idx) : ''
 }
 
 const requestWithAuth = async (method: string, url: string, baseHeaders: Record<string, string>, body: BodyInit | null, cfg: WebDAVConfig) => {
@@ -132,10 +289,14 @@ const requestWithAuth = async (method: string, url: string, baseHeaders: Record<
     if (resp.status === 401) {
         const wa = resp.headers.get('www-authenticate') || ''
         if (/Digest/i.test(wa)) {
-            const chal = parseDigest(wa)
-            const digest = await buildDigestAuth(method, url, cfg.username, cfg.password, chal)
-            const h2: Record<string, string> = { ...baseHeaders, Authorization: digest }
-            resp = await fetch(url, { method, headers: h2, body })
+            try {
+                const chal = parseDigest(extractDigestChallenge(wa))
+                const digest = buildDigestAuth(method, url, cfg.username, cfg.password, body, chal)
+                const h2: Record<string, string> = { ...baseHeaders, Authorization: digest }
+                resp = await fetch(url, { method, headers: h2, body })
+            } catch {
+                // keep original 401 response when digest header cannot be satisfied
+            }
         }
     }
     return resp
@@ -153,7 +314,7 @@ const ensureSlash = (url: string) => {
     }
 }
 
-const DEFAULT_DIR = 'QuickTabNavigator'
+const DEFAULT_DIR = 'NewTab'
 const ts = () => {
     const d = new Date()
     const pad = (n: number) => (n < 10 ? '0' + n : '' + n)
