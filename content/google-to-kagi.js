@@ -18,6 +18,7 @@ const ENGINE_SELECT_ID = "qtn-engine-select";
 const ENGINE_BUTTON_ID = "qtn-engine-button";
 const ENGINE_STYLE_ID = "qtn-engine-style";
 const DISABLED_CLASS = "qtn-engine--disabled";
+const DARK_THEME_CLASS = "qtn-engine--dark";
 const TOOLBAR_MARGIN = 10;
 
 const FALLBACK_ENGINES = [
@@ -245,6 +246,106 @@ function findToolbarAnchorElement() {
   return best;
 }
 
+function parseColorChannels(colorText) {
+  if (!isNonEmptyString(colorText)) return null;
+  const match = colorText.match(/rgba?\(([^)]+)\)/i);
+  if (!match) return null;
+
+  const parts = match[1]
+    .split(/[,\s/]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 3) return null;
+
+  const rgb = parts.slice(0, 3).map((part) => Number(part));
+  if (rgb.some((value) => Number.isNaN(value))) return null;
+  const alpha = parts[3] === undefined ? 1 : Number(parts[3]);
+  if (Number.isNaN(alpha)) return null;
+
+  return {
+    r: Math.max(0, Math.min(255, rgb[0])),
+    g: Math.max(0, Math.min(255, rgb[1])),
+    b: Math.max(0, Math.min(255, rgb[2])),
+    a: Math.max(0, Math.min(1, alpha)),
+  };
+}
+
+function inferDarkFromColor(colorText) {
+  const channels = parseColorChannels(colorText);
+  if (!channels || channels.a < 0.06) return null;
+
+  const luminance = (0.2126 * channels.r + 0.7152 * channels.g + 0.0722 * channels.b) / 255;
+  return luminance < 0.5;
+}
+
+function readThemeSignalFromElement(element) {
+  if (!element || !(element instanceof Element)) return null;
+  const style = window.getComputedStyle(element);
+
+  const byBackground = inferDarkFromColor(style.backgroundColor);
+  if (byBackground !== null) return byBackground;
+
+  const byTextColor = inferDarkFromColor(style.color);
+  if (byTextColor !== null) return !byTextColor;
+
+  return null;
+}
+
+function readExplicitThemeSignal() {
+  const candidates = [
+    document.documentElement?.getAttribute("data-theme"),
+    document.body?.getAttribute("data-theme"),
+    document.documentElement?.getAttribute("data-darkmode"),
+    document.body?.getAttribute("data-darkmode"),
+    document.documentElement?.getAttribute("color-scheme"),
+    document.body?.getAttribute("color-scheme"),
+  ];
+
+  for (const raw of candidates) {
+    if (!isNonEmptyString(raw)) continue;
+    const value = raw.trim().toLowerCase();
+    if (value === "1" || value === "true" || value.includes("dark")) return true;
+    if (value === "0" || value === "false" || value.includes("light")) return false;
+  }
+
+  if (document.documentElement.classList.contains("dark") || document.body?.classList.contains("dark")) return true;
+  if (document.documentElement.classList.contains("light") || document.body?.classList.contains("light")) return false;
+
+  return null;
+}
+
+function inferGoogleSearchDarkTheme(anchorElement) {
+  const explicit = readExplicitThemeSignal();
+  if (explicit !== null) return explicit;
+
+  const input = findVisibleSearchInput();
+  const candidates = [
+    anchorElement,
+    input?.closest('[role="combobox"]'),
+    input,
+    input?.closest("form"),
+    document.body,
+    document.documentElement,
+  ].filter(Boolean);
+
+  for (const element of candidates) {
+    const signal = readThemeSignalFromElement(element);
+    if (signal !== null) return signal;
+  }
+
+  try {
+    return !!window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+  } catch {
+    return false;
+  }
+}
+
+function syncToolbarTheme(toolbar, anchorElement) {
+  if (!toolbar) return;
+  const isDark = inferGoogleSearchDarkTheme(anchorElement);
+  toolbar.classList.toggle(DARK_THEME_CLASS, isDark);
+}
+
 function getCurrentQuery() {
   // URL is the source of truth for Google SPA navigations.
   const fromUrl = getQueryFromUrl(location.href);
@@ -306,19 +407,17 @@ function ensureStyle() {
   cursor:not-allowed;
   pointer-events:none;
 }
-@media (prefers-color-scheme: dark){
-  #${ENGINE_SELECT_ID}{
-    background:#202124;
-    color:#e8eaed;
-    border-color:rgba(232,234,237,.25);
-    box-shadow:0 1px 3px rgba(0,0,0,.45);
-  }
-  #${ENGINE_BUTTON_ID}{
-    background:#202124;
-    color:#8ab4f8;
-    border-color:rgba(232,234,237,.25);
-    box-shadow:0 1px 3px rgba(0,0,0,.45);
-  }
+#${TOOLBAR_ID}.${DARK_THEME_CLASS} #${ENGINE_SELECT_ID}{
+  background:#202124;
+  color:#e8eaed;
+  border-color:rgba(232,234,237,.25);
+  box-shadow:0 1px 3px rgba(0,0,0,.45);
+}
+#${TOOLBAR_ID}.${DARK_THEME_CLASS} #${ENGINE_BUTTON_ID}{
+  background:#202124;
+  color:#8ab4f8;
+  border-color:rgba(232,234,237,.25);
+  box-shadow:0 1px 3px rgba(0,0,0,.45);
 }
   `.trim();
 
@@ -470,6 +569,7 @@ function ensureEngineToolbar() {
   if (!toolbar.isConnected) {
     document.body.appendChild(toolbar);
   }
+  syncToolbarTheme(toolbar, anchorElement);
 
   const selectedEngine = renderEngineSelect(toolbar);
   updateToolbarButton(toolbar, selectedEngine);
