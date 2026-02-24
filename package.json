@@ -1,11 +1,11 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.1.4",
+  "version": "1.1.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/build-extension.js",
+    "build": "npm run sync-version && npm run build:ext",
     "build:dev": "vite build --mode development",
     "build:ext": "node scripts/build-extension.js",
     "lint": "eslint .",
@@ -13,7 +13,7 @@
     "test": "node tests/google-to-kagi.test.js",
     "sync-version": "node -e \"const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('./package.json','utf8'));const m=JSON.parse(fs.readFileSync('./manifest.json','utf8'));const cmp=(a,b)=>{const pa=a.split('.').map(Number),pb=b.split('.').map(Number);for(let i=0;i<3;i++){if(pa[i]>pb[i])return 1;if(pa[i]<pb[i])return -1;}return 0;};const v=cmp(pkg.version,m.version)>=0?pkg.version:m.version;pkg.version=v;m.version=v;fs.writeFileSync('./package.json',JSON.stringify(pkg,null,2)+'\\n');fs.writeFileSync('./manifest.json',JSON.stringify(m,null,2)+'\\n');console.log('Synced version to '+v)\"",
     "version": "npm run sync-version",
-    "package:zip": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path release | Out-Null; Compress-Archive -Path release\\\\extensions\\\\* -DestinationPath release\\\\Quick-Tab-Navigator-$env:npm_package_version.zip -Force\""
+    "package:zip": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path release | Out-Null; Compress-Archive -Path release\\\\extensions\\\\* -DestinationPath release\\\\NewTab-$env:npm_package_version.zip -Force\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

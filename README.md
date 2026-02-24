@@ -1,4 +1,4 @@
-# Quick Tab Navigator
+# NewTab
 
 ![LightTheme](./assets/LightMode.png)
 ![DarkTheme](./assets/DarkMode.png)

@@ -1,7 +1,7 @@
 
 // Background script for Chrome extension
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Quick Tab Navigator extension installed');
+  console.log('NewTab extension installed');
 });
 
 // Handle tab creation
