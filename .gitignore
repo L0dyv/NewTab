@@ -1,5 +1,5 @@
 # local dev docs
-.localdocs/
+# .localdocs/
 # Dependencies
 node_modules/
 
