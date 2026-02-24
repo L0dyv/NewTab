@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Settings, Search, Globe, Puzzle, Copy, Trash2 } from "lucide-react";
+import { Settings, Settings2, Search, Puzzle, Copy, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoComplete from "@/components/AutoComplete";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -513,7 +513,7 @@ const Index = () => {
           className="text-stone-400 dark:text-stone-600 hover:text-stone-600 dark:hover:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all duration-200"
           title={t('index.openBrowserSettings')}
         >
-          <Globe className="h-5 w-5" />
+          <Settings2 className="h-5 w-5" />
         </Button>
         <Button
           variant="ghost"
