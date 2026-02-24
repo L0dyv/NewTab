@@ -33,7 +33,7 @@ const CustomDialogContent = React.forwardRef<
             ref={ref}
             className={cn(
                 "fixed left-1/2 top-1/2 z-50 w-full max-w-4xl -translate-x-1/2 -translate-y-1/2",
-                "border bg-background shadow-lg sm:rounded-lg",
+                "border bg-background shadow-lg rounded-lg",
                 "max-h-[90vh]",
                 "overflow-visible",
                 className
@@ -52,7 +52,7 @@ const CustomDialogContent = React.forwardRef<
             <VisuallyHidden.Root asChild>
                 <DialogDescription>{t('settings.dialog')}</DialogDescription>
             </VisuallyHidden.Root>
-            <div className="rounded-lg">
+            <div>
                 {children}
             </div>
         </DialogPrimitive.Content>
