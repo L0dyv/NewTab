@@ -33,9 +33,7 @@ const CustomDialogContent = React.forwardRef<
             ref={ref}
             className={cn(
                 "fixed left-1/2 top-1/2 z-50 w-full max-w-4xl -translate-x-1/2 -translate-y-1/2",
-                "border bg-background shadow-lg rounded-lg",
-                "max-h-[90vh]",
-                "overflow-visible",
+                "overflow-visible outline-none",
                 className
             )}
             {...props}
@@ -52,7 +50,7 @@ const CustomDialogContent = React.forwardRef<
             <VisuallyHidden.Root asChild>
                 <DialogDescription>{t('settings.dialog')}</DialogDescription>
             </VisuallyHidden.Root>
-            <div>
+            <div className="max-h-[90vh] rounded-lg overflow-hidden border border-border bg-background shadow-lg">
                 {children}
             </div>
         </DialogPrimitive.Content>
@@ -91,7 +89,7 @@ export default function SettingsModal({
                         {title}
                     </DialogTitle>
                 </DialogHeader>
-                <div>{children}</div>
+                {children}
             </CustomDialogContent>
         </Dialog>
     );
