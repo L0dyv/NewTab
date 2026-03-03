@@ -11,6 +11,7 @@ export const defaultSearchEngines: SearchEngine[] = [
     { id: "google", name: "Google", url: "https://www.google.com/search?q=", isDefault: true, enabled: true },
     { id: "bing", name: "Bing", url: "https://www.bing.com/search?q=", enabled: true },
     { id: "duckduckgo", name: "DuckDuckGo", url: "https://duckduckgo.com/?q=", enabled: true },
+    { id: "brave", name: "Brave", url: "https://search.brave.com/search?q=", enabled: true },
     { id: "kagi", name: "Kagi", url: "https://kagi.com/search?q=", enabled: true },
     { id: "kagi-assistant", name: "Kagi Assistant", url: "https://kagi.com/assistant", isAI: true, enabled: true },
     { id: 'yahoo', name: 'Yahoo', url: 'https://search.yahoo.com/search?p=', enabled: false },

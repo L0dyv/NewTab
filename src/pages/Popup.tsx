@@ -6,6 +6,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, migrateLocalStorageToSync, setStoredValue } from "@/lib/storage";
 import { ensureUrlHasProtocol } from "@/lib/url";
+import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -231,8 +232,10 @@ export default function Popup() {
                 if (engine.id === 'kagi-assistant') {
                     handleKagiSearch(value);
                 } else {
-                    const searchUrl = engine.url + encodeURIComponent(value);
-                    navigateTo(searchUrl);
+                    const searchUrl = buildSearchEngineUrl(engine, value);
+                    if (searchUrl) {
+                        navigateTo(searchUrl);
+                    }
                 }
             }
         }
