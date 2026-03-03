@@ -99,6 +99,377 @@ const resolveFavicon = async (pageUrl) => {
     return null;
 };
 
+const OMNIBOX_MAX_HISTORY = 40;
+const OMNIBOX_MAX_BOOKMARKS = 25;
+const OMNIBOX_MAX_RESULTS = 8;
+const OMNIBOX_ENGINE_CACHE_TTL_MS = 5000;
+
+const FALLBACK_OMNIBOX_ENGINES = [
+    { id: "google", name: "Google", url: "https://www.google.com/search?q=", isDefault: true, enabled: true },
+    { id: "bing", name: "Bing", url: "https://www.bing.com/search?q=", enabled: true },
+    { id: "duckduckgo", name: "DuckDuckGo", url: "https://duckduckgo.com/?q=", enabled: true },
+    { id: "brave", name: "Brave", url: "https://search.brave.com/search?q=", enabled: true },
+    { id: "kagi", name: "Kagi", url: "https://kagi.com/search?q=", enabled: true },
+    { id: "kagi-assistant", name: "Kagi Assistant", url: "https://kagi.com/assistant", isAI: true, enabled: true },
+];
+
+let omniboxRequestId = 0;
+let cachedOmniboxEngine = null;
+let cachedOmniboxEngineAt = 0;
+
+const escapeOmnibox = (text = "") => String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const normalizeQuery = (text = "") => text.trim().toLowerCase();
+
+const normalizeUrlForMatch = (url = "") => url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+
+const getStorageValue = async (key, fallbackValue) => {
+    try {
+        const syncData = await chrome.storage.sync.get(key);
+        if (Object.prototype.hasOwnProperty.call(syncData, key)) {
+            return syncData[key];
+        }
+    } catch { }
+
+    try {
+        const localData = await chrome.storage.local.get(key);
+        if (Object.prototype.hasOwnProperty.call(localData, key)) {
+            return localData[key];
+        }
+    } catch { }
+
+    return fallbackValue;
+};
+
+const getCurrentSearchEngineConfig = async () => {
+    if (cachedOmniboxEngine && (Date.now() - cachedOmniboxEngineAt) < OMNIBOX_ENGINE_CACHE_TTL_MS) {
+        return cachedOmniboxEngine;
+    }
+
+    const [savedEngines, currentSearchEngine] = await Promise.all([
+        getStorageValue("searchEngines", FALLBACK_OMNIBOX_ENGINES),
+        getStorageValue("currentSearchEngine", "google"),
+    ]);
+
+    const engines = Array.isArray(savedEngines) ? savedEngines : FALLBACK_OMNIBOX_ENGINES;
+    const selected = engines.find((engine) => engine.id === currentSearchEngine)
+        || engines.find((engine) => engine.isDefault)
+        || engines.find((engine) => engine.enabled !== false)
+        || FALLBACK_OMNIBOX_ENGINES[0];
+
+    const engine = {
+        id: selected?.id || "google",
+        name: selected?.name || "Google",
+        url: selected?.url || "https://www.google.com/search?q=",
+    };
+
+    cachedOmniboxEngine = engine;
+    cachedOmniboxEngineAt = Date.now();
+    return engine;
+};
+
+const ensureUrlHasProtocol = (rawUrl) => {
+    const url = String(rawUrl || "").trim();
+    if (!url) return "";
+    if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(url)) return url;
+    return `https://${url}`;
+};
+
+const isLikelyUrl = (text) => {
+    if (!text || text.includes(" ")) return false;
+
+    try {
+        const urlToTest = text.startsWith("http") ? text : `http://${text}`;
+        new URL(urlToTest);
+
+        if (text.includes(".")) return true;
+        if (/^localhost(:\d+)?(\/.*)?$/i.test(text)) return true;
+        if (/^https?:\/\/localhost(:\d+)?(\/.*)?$/i.test(text)) return true;
+        if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?(\/.*)?$/.test(text)) return true;
+        return false;
+    } catch {
+        return false;
+    }
+};
+
+const buildSearchEngineUrl = (engine, query) => {
+    const trimmed = String(query || "").trim();
+    if (!trimmed) return null;
+
+    if (engine?.id === "kagi-assistant") {
+        const params = new URLSearchParams({
+            q: trimmed,
+            internet: "true",
+        });
+        return `https://kagi.com/assistant?${params.toString()}`;
+    }
+
+    const template = ensureUrlHasProtocol(engine?.url || "https://www.google.com/search?q=");
+    if (!template) return null;
+
+    const encodedQuery = encodeURIComponent(trimmed);
+    const merged = template.includes("%s")
+        ? template.replace(/%s/g, encodedQuery)
+        : `${template}${encodedQuery}`;
+
+    try {
+        return new URL(merged).toString();
+    } catch {
+        return null;
+    }
+};
+
+const openByDisposition = (url, disposition) => {
+    if (!url) return;
+
+    if (disposition === "currentTab") {
+        chrome.tabs.update({ url });
+        return;
+    }
+
+    if (disposition === "newBackgroundTab") {
+        chrome.tabs.create({ url, active: false });
+        return;
+    }
+
+    chrome.tabs.create({ url, active: true });
+};
+
+const getRecencyBoost = (lastVisitTime) => {
+    if (!lastVisitTime) return 0;
+
+    const ageInDays = (Date.now() - lastVisitTime) / (1000 * 60 * 60 * 24);
+    if (ageInDays <= 1) return 45;
+    if (ageInDays <= 7) return 35;
+    if (ageInDays <= 30) return 22;
+    if (ageInDays <= 90) return 10;
+    return 0;
+};
+
+const matchCandidate = (normalized, candidate) => {
+    const title = (candidate.title || "").toLowerCase();
+    const rawUrl = (candidate.url || "").toLowerCase();
+    const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
+    return title.includes(normalized) || rawUrl.includes(normalized) || normalizedUrl.includes(normalized);
+};
+
+const scoreCandidate = (normalized, candidate) => {
+    const title = (candidate.title || "").toLowerCase();
+    const rawUrl = (candidate.url || "").toLowerCase();
+    const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
+
+    let score = 0;
+
+    if (normalizedUrl.startsWith(normalized)) score += 120;
+    else if (rawUrl.startsWith(normalized)) score += 110;
+    else if (normalizedUrl.includes(normalized)) score += 45;
+
+    if (title.startsWith(normalized)) score += 80;
+    else if (title.includes(normalized)) score += 30;
+
+    if (candidate.type === "bookmark") score += 35;
+
+    score += Math.min((candidate.typedCount || 0) * 10, 80);
+    score += Math.min(Math.log2((candidate.visitCount || 0) + 1) * 12, 60);
+    score += getRecencyBoost(candidate.lastVisitTime);
+
+    return score;
+};
+
+const rankOmniboxCandidates = (query, candidates) => {
+    const normalized = normalizeQuery(query);
+    const bestByUrl = new Map();
+
+    for (const candidate of candidates) {
+        if (!candidate?.url || !matchCandidate(normalized, candidate)) continue;
+
+        const score = scoreCandidate(normalized, candidate);
+        const next = { ...candidate, score };
+        const dedupeKey = candidate.url.toLowerCase();
+        const existing = bestByUrl.get(dedupeKey);
+
+        if (!existing || (existing.score || 0) < score) {
+            bestByUrl.set(dedupeKey, next);
+        }
+    }
+
+    return [...bestByUrl.values()]
+        .sort((a, b) =>
+            (b.score || 0) - (a.score || 0)
+            || (b.typedCount || 0) - (a.typedCount || 0)
+            || (b.visitCount || 0) - (a.visitCount || 0)
+            || (b.lastVisitTime || 0) - (a.lastVisitTime || 0)
+        )
+        .slice(0, OMNIBOX_MAX_RESULTS);
+};
+
+const getDisplayUrl = (url) => {
+    try {
+        const parsed = new URL(url);
+        const path = parsed.pathname === "/" ? "" : parsed.pathname;
+        return `${parsed.hostname}${path}`;
+    } catch {
+        return url;
+    }
+};
+
+const getOmniboxHistoryCandidates = async (query) => {
+    try {
+        const results = await chrome.history.search({
+            text: query,
+            startTime: 0,
+            maxResults: OMNIBOX_MAX_HISTORY,
+        });
+
+        return results
+            .filter((item) => Boolean(item.url))
+            .map((item) => ({
+                title: item.title || item.url || "",
+                url: item.url || "",
+                type: "history",
+                visitCount: item.visitCount,
+                typedCount: item.typedCount,
+                lastVisitTime: item.lastVisitTime,
+            }));
+    } catch {
+        return [];
+    }
+};
+
+const getOmniboxBookmarkCandidates = async (query) => {
+    try {
+        const results = await chrome.bookmarks.search(query);
+        return results
+            .filter((item) => Boolean(item.url))
+            .slice(0, OMNIBOX_MAX_BOOKMARKS)
+            .map((item) => ({
+                title: item.title || item.url || "",
+                url: item.url || "",
+                type: "bookmark",
+            }));
+    } catch {
+        return [];
+    }
+};
+
+const buildOmniboxSuggestions = async (query, engine) => {
+    const escapedQuery = escapeOmnibox(query);
+    const escapedEngineName = escapeOmnibox(engine.name || "Google");
+
+    const [historyCandidates, bookmarkCandidates] = await Promise.all([
+        getOmniboxHistoryCandidates(query),
+        getOmniboxBookmarkCandidates(query),
+    ]);
+
+    const ranked = rankOmniboxCandidates(query, [...historyCandidates, ...bookmarkCandidates]);
+    const suggestions = [
+        {
+            content: `search:${query}`,
+            description: `Search <match>${escapedQuery}</match> with <dim>${escapedEngineName}</dim>`,
+        },
+    ];
+
+    for (const item of ranked) {
+        const escapedTitle = escapeOmnibox(item.title || item.url || "");
+        const escapedUrl = escapeOmnibox(getDisplayUrl(item.url || ""));
+        const escapedType = item.type === "bookmark" ? "Bookmark" : "History";
+        suggestions.push({
+            content: `url:${item.url}`,
+            description: `<dim>[${escapedType}]</dim> ${escapedTitle} <url>${escapedUrl}</url>`,
+        });
+    }
+
+    return suggestions;
+};
+
+const handleOmniboxInputEntered = async (text, disposition) => {
+    const input = String(text || "").trim();
+    if (!input) return;
+
+    if (input.startsWith("url:")) {
+        openByDisposition(input.slice(4), disposition);
+        return;
+    }
+
+    if (input.startsWith("search:")) {
+        const query = input.slice(7).trim();
+        if (!query) return;
+        const engine = await getCurrentSearchEngineConfig();
+        const searchUrl = buildSearchEngineUrl(engine, query);
+        openByDisposition(searchUrl, disposition);
+        return;
+    }
+
+    if (isLikelyUrl(input)) {
+        openByDisposition(ensureUrlHasProtocol(input), disposition);
+        return;
+    }
+
+    const engine = await getCurrentSearchEngineConfig();
+    const searchUrl = buildSearchEngineUrl(engine, input);
+    openByDisposition(searchUrl, disposition);
+};
+
+if (chrome.omnibox) {
+    chrome.omnibox.setDefaultSuggestion({
+        description: "Type to search with NewTab or open URL",
+    });
+
+    chrome.omnibox.onInputChanged.addListener((text, suggest) => {
+        const requestId = ++omniboxRequestId;
+
+        (async () => {
+            const query = String(text || "").trim();
+            const engine = await getCurrentSearchEngineConfig();
+            const escapedEngineName = escapeOmnibox(engine.name || "Google");
+            const escapedQuery = escapeOmnibox(query);
+
+            if (query) {
+                chrome.omnibox.setDefaultSuggestion({
+                    description: `Press Enter to search <match>${escapedQuery}</match> with <dim>${escapedEngineName}</dim>`,
+                });
+            } else {
+                chrome.omnibox.setDefaultSuggestion({
+                    description: `Type to search with <dim>${escapedEngineName}</dim> or open URL`,
+                });
+                suggest([]);
+                return;
+            }
+
+            const suggestions = await buildOmniboxSuggestions(query, engine);
+            if (requestId !== omniboxRequestId) return;
+            suggest(suggestions);
+        })().catch(() => {
+            if (requestId === omniboxRequestId) {
+                suggest([]);
+            }
+        });
+    });
+
+    chrome.omnibox.onInputEntered.addListener((text, disposition) => {
+        handleOmniboxInputEntered(text, disposition).catch(() => { });
+    });
+
+    chrome.omnibox.onInputCancelled.addListener(() => {
+        omniboxRequestId += 1;
+    });
+}
+
+if (chrome.storage?.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "sync" && areaName !== "local") return;
+        if (changes.searchEngines || changes.currentSearchEngine) {
+            cachedOmniboxEngine = null;
+            cachedOmniboxEngineAt = 0;
+        }
+    });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // 获取当前活动标签页信息
     if (message && message.type === "GET_CURRENT_TAB") {

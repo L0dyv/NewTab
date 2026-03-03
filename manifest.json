@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NewTab",
-  "version": "1.1.9",
+  "version": "1.1.12",
   "description": "A smart browser start page with auto-completion based on browser history",
   "permissions": [
     "history",
@@ -15,6 +15,9 @@
   ],
   "action": {
     "default_popup": "popup.html"
+  },
+  "omnibox": {
+    "keyword": "nt"
   },
   "chrome_url_overrides": {
     "newtab": "index.html"
