@@ -33,7 +33,14 @@ declare namespace chrome {
       children?: BookmarkTreeNode[];
     }
 
+    interface SearchQuery {
+      query?: string;
+      title?: string;
+      url?: string;
+    }
+
     function getTree(): Promise<BookmarkTreeNode[]>;
+    function search(query: string | SearchQuery): Promise<BookmarkTreeNode[]>;
   }
 
   namespace tabs {
