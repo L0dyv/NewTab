@@ -117,7 +117,7 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
             )}
             {loadFailed && (
                 <div
-                    className="w-full h-full rounded-md bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-200 font-semibold flex items-center justify-center"
+                    className="w-full h-full rounded-md bg-secondary text-secondary-foreground font-semibold flex items-center justify-center"
                     style={{ fontSize: size * 0.5 }}
                 >
                     {label}

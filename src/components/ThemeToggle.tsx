@@ -7,9 +7,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTheme } from "@/hooks/useTheme";
+import { useI18n } from "@/hooks/useI18n";
 
 const ThemeToggle = () => {
   const { theme, setTheme, actualTheme } = useTheme();
+  const { t } = useI18n();
 
   const getThemeIcon = () => {
     if (theme === 'system') {
@@ -24,35 +26,35 @@ const ThemeToggle = () => {
         <Button
           variant="ghost"
           size="icon"
-          className="text-stone-500 dark:text-stone-500 hover:text-stone-800 dark:hover:text-stone-100"
+          className="text-muted-foreground hover:text-foreground"
         >
           {getThemeIcon()}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="bg-stone-50/95 dark:bg-stone-900/95 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 shadow-md backdrop-blur-sm"
+        className="bg-popover/95 border-border text-popover-foreground shadow-md backdrop-blur-sm"
       >
         <DropdownMenuItem
           onClick={() => setTheme('light')}
-          className="cursor-pointer focus:bg-stone-100 dark:focus:bg-stone-800 focus:text-stone-900 dark:focus:text-stone-100 data-[highlighted]:bg-stone-100 dark:data-[highlighted]:bg-stone-800"
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
         >
           <Sun className="mr-2 h-4 w-4" />
-          浅色
+          {t('theme.light')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme('dark')}
-          className="cursor-pointer focus:bg-stone-100 dark:focus:bg-stone-800 focus:text-stone-900 dark:focus:text-stone-100 data-[highlighted]:bg-stone-100 dark:data-[highlighted]:bg-stone-800"
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
         >
           <Moon className="mr-2 h-4 w-4" />
-          深色
+          {t('theme.dark')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme('system')}
-          className="cursor-pointer focus:bg-stone-100 dark:focus:bg-stone-800 focus:text-stone-900 dark:focus:text-stone-100 data-[highlighted]:bg-stone-100 dark:data-[highlighted]:bg-stone-800"
+          className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
         >
           <Monitor className="mr-2 h-4 w-4" />
-          跟随系统
+          {t('theme.system')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

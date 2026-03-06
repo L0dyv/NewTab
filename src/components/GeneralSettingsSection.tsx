@@ -59,7 +59,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
           <select
             value={locale}
             onChange={(e) => setLocale(e.target.value as 'zh-CN' | 'en')}
-            className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-stone-300 dark:focus:ring-stone-600"
+            className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {supportedLocales.map((loc) => (
               <option key={loc.value} value={loc.value}>{loc.label}</option>
@@ -83,7 +83,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
               onChange={(e) => handleOpenInNewTabChange(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-stone-300 dark:peer-focus:ring-stone-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+            <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
           </label>
         </div>
       </div>

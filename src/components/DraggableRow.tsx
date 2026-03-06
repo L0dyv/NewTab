@@ -92,7 +92,7 @@ const DraggableRow = ({
                     size="sm"
                     onClick={onSaveEditing}
                     disabled={!editingLink.url || isEditLoading}
-                    className="h-7 w-7 p-0 text-green-600 hover:text-green-700"
+                    className="h-7 w-7 p-0 text-foreground hover:text-foreground/80"
                 >
                     {isEditLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                 </Button>
@@ -128,7 +128,7 @@ const DraggableRow = ({
                     variant="ghost"
                     size="sm"
                     onClick={handleEditClick}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-blue-600"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                 >
                     <Pencil className="h-3.5 w-3.5" />
                 </Button>

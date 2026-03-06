@@ -392,7 +392,7 @@ export default function Popup() {
 
     return (
         <div
-            className="bg-stone-50 dark:bg-stone-950 rounded-xl shadow-2xl overflow-hidden"
+            className="bg-background rounded-xl shadow-2xl overflow-hidden"
             style={{ width: "400px", height: popupHeight }}
         >
             <div className="p-4 h-full flex flex-col">
@@ -401,7 +401,7 @@ export default function Popup() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-stone-500 dark:text-stone-500 hover:text-stone-700 dark:hover:text-stone-300"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
                         onClick={handleOpenSettings}
                     >
                         <Settings className="h-4 w-4" />
@@ -417,13 +417,13 @@ export default function Popup() {
                             onChange={setQuery}
                             onSubmit={handleSubmit}
                             placeholder={isKagiSelected ? t('index.kagiPlaceholder') : t('index.placeholder')}
-                            className="w-full h-11 text-sm px-10 pr-20 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:ring-1 focus:ring-stone-300 dark:focus:ring-stone-700 focus:border-transparent focus:outline-none transition-all duration-200"
+                            className="w-full h-11 text-sm px-10 pr-20 rounded-full bg-card border border-border text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:ring-2 focus:ring-ring focus:border-transparent focus:outline-none transition-all duration-200"
                         />
 
                         {/* 搜索按钮 - V0 风格 */}
                         <Button
                             onClick={() => handleSubmit(query)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 px-3 rounded-full bg-stone-800 dark:bg-stone-100 hover:bg-stone-900 dark:hover:bg-white text-white dark:text-stone-900 text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200"
+                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200"
                         >
                             {isKagiSelected ? t('index.ask') : t('common.search')}
                         </Button>
@@ -436,21 +436,21 @@ export default function Popup() {
                                 key={engine.id}
                                 type="button"
                                 className={`relative inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                                    ? "bg-stone-800 dark:bg-stone-100 text-white dark:text-stone-900 shadow-sm"
-                                    : "text-stone-600 dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 hover:text-stone-800 dark:hover:text-stone-200 bg-transparent"
+                                    ? "bg-primary text-primary-foreground shadow-sm"
+                                    : "text-stone-600 dark:text-stone-400 hover:bg-accent hover:text-foreground bg-transparent"
                                     }`}
                                 onClick={() => handleSearchEngineChange(engine.id)}
                                 onMouseDown={(e) => e.preventDefault()}
                             >
                                 {/* 快捷键数字提示 */}
                                 {showShortcutHints && index < 9 && (
-                                    <span className="absolute -top-1.5 -right-0.5 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-stone-600 dark:bg-stone-400 text-white dark:text-stone-900 shadow-sm animate-in fade-in zoom-in-50 duration-150">
+                                    <span className="absolute -top-1.5 -right-0.5 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-primary text-primary-foreground shadow-sm animate-in fade-in zoom-in-50 duration-150">
                                         {index + 1}
                                     </span>
                                 )}
                                 {engine.name}
                                 {engine.isAI && (
-                                    <span className="ml-0.5 text-[10px] bg-stone-600 dark:bg-stone-700 text-white dark:text-stone-300 px-1 py-0.5 rounded">AI</span>
+                                    <span className="ml-0.5 text-[10px] bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1 py-0.5 rounded">AI</span>
                                 )}
                             </button>
                         ))}
@@ -462,7 +462,7 @@ export default function Popup() {
                             {quickLinks.slice(0, 4).map((link) => (
                                 <div
                                     key={link.id}
-                                    className="flex items-center justify-center py-3 rounded-lg hover:bg-stone-200/30 dark:hover:bg-stone-800/20 transition-colors duration-200 group cursor-pointer"
+                                    className="flex items-center justify-center py-3 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
                                     onClick={() => handleQuickLinkClick(link.url)}
                                     title={link.name}
                                 >
@@ -475,9 +475,9 @@ export default function Popup() {
                     )}
 
                     {/* 添加当前页面按钮 */}
-                    <div className="mt-auto pt-2 border-t border-stone-200 dark:border-stone-800">
+                    <div className="mt-auto pt-2 border-t border-border">
                         <div className="flex items-center justify-between gap-3 px-1 pb-2">
-                            <p className="text-xs text-stone-600 dark:text-stone-400">
+                            <p className="text-xs text-muted-foreground">
                                 {t('popup.openInNewTab')}
                             </p>
                             <label className="relative inline-flex items-center cursor-pointer">
@@ -487,17 +487,17 @@ export default function Popup() {
                                     onChange={(e) => handlePopupOpenInNewTabChange(e.target.checked)}
                                     className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-stone-300 dark:peer-focus:ring-stone-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+                                <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
                             </label>
                         </div>
                         <Button
                             variant="ghost"
                             onClick={handleAddCurrentPage}
                             disabled={addStatus !== 'idle'}
-                            className="w-full h-9 text-xs text-stone-600 dark:text-stone-400 hover:text-stone-800 dark:hover:text-stone-200 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all duration-200"
+                            className="w-full h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
                         >
                             {addStatus === 'added' ? (
-                                <><Check className="h-3.5 w-3.5 mr-1.5 text-green-500" />{t('popup.added')}</>
+                                <><Check className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.added')}</>
                             ) : addStatus === 'exists' ? (
                                 <>{t('popup.exists')}</>
                             ) : (
@@ -505,7 +505,7 @@ export default function Popup() {
                             )}
                         </Button>
                         {currentTabUrl && (
-                            <div className="mt-1.5 px-2 text-[11px] text-stone-500 dark:text-stone-500 flex items-center gap-1">
+                            <div className="mt-1.5 px-2 text-[11px] text-muted-foreground flex items-center gap-1">
                                 <span className="flex-shrink-0">{t('popup.addPageUrl')}</span>
                                 <span className="min-w-0 flex-1 truncate" title={currentTabUrl}>
                                     {currentTabUrl}

@@ -529,12 +529,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-800 z-50 max-h-96 overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-xl shadow-xl border border-border z-50 max-h-96 overflow-y-auto"
         >
           {suggestions.map((suggestion, index) => (
             <div
               key={suggestion.id}
-              className={`flex items-center gap-3 px-4 py-3 hover:bg-stone-50 dark:hover:bg-stone-800 cursor-pointer border-b border-stone-100 dark:border-stone-800 last:border-b-0 transition-colors ${index === selectedIndex ? 'bg-stone-100 dark:bg-stone-800' : ''
+              className={`flex items-center gap-3 px-4 py-3 hover:bg-accent cursor-pointer border-b border-border/50 last:border-b-0 transition-colors ${index === selectedIndex ? 'bg-accent' : ''
                 }`}
               onClick={() => handleSuggestionClick(suggestion)}
             >
@@ -544,21 +544,21 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
                     (e.target as HTMLImageElement).style.display = 'none';
                   }} />
                 ) : (
-                  <div className="w-4 h-4 bg-stone-300 dark:bg-stone-600 rounded"></div>
+                  <div className="w-4 h-4 bg-muted-foreground/30 rounded"></div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-stone-900 dark:text-stone-100 truncate">
+                <div className="font-medium text-foreground truncate">
                   {suggestion.title}
                 </div>
-                <div className="text-sm text-stone-500 dark:text-stone-400 truncate">
+                <div className="text-sm text-muted-foreground truncate">
                   {suggestion.url}
                 </div>
               </div>
               <div className="flex-shrink-0">
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${suggestion.type === 'history'
-                  ? 'bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-300'
-                  : 'bg-stone-300 dark:bg-stone-600 text-stone-800 dark:text-stone-200'
+                  ? 'bg-secondary text-secondary-foreground'
+                  : 'bg-accent text-accent-foreground'
                   }`}>
                   {suggestion.type === 'history' ? t('autocomplete.history') : t('autocomplete.bookmark')}
                 </span>
