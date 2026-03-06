@@ -298,6 +298,14 @@ const Index = () => {
     setQuickLinks(links => links.filter(link => link.id !== id));
   };
 
+  const confirmRemoveQuickLink = (id: string) => {
+    const shouldDelete = window.confirm(
+      `${t('quickLinks.confirmDelete')}\n${t('quickLinks.deleteWarning')}`
+    );
+    if (!shouldDelete) return;
+    removeQuickLink(id);
+  };
+
   // 复制链接地址到剪贴板
   const copyToClipboard = async (url: string) => {
     const normalizedUrl = ensureUrlHasProtocol(url);
@@ -494,7 +502,7 @@ const Index = () => {
                   </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem
-                    onClick={() => removeQuickLink(link.id)}
+                    onClick={() => confirmRemoveQuickLink(link.id)}
                     className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
