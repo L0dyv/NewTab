@@ -370,7 +370,7 @@ export default function DataManagementSection({ onSettingsChanged }: DataManagem
       )}
 
       {success && (
-        <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm">
+        <div className="p-3 rounded-lg bg-stone-200/50 dark:bg-stone-800/50 border border-stone-300 dark:border-stone-700 text-stone-700 dark:text-stone-300 text-sm">
           {success}
         </div>
       )}

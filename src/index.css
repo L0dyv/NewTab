@@ -130,12 +130,6 @@
     transition-duration: 150ms;
   }
 
-  /* V0 风格搜索框特效 */
-  .search-input-v0 {
-    @apply w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full pl-11 pr-5 py-3.5 text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-stone-300 dark:focus:ring-stone-700 focus:border-transparent transition-all text-base;
-    font-family: 'Noto Serif SC', serif;
-  }
-
   /* 更精细的阴影 - Stone 色系 */
   .shadow-sm {
     box-shadow: 0 1px 2px 0 rgba(120, 113, 108, 0.05);

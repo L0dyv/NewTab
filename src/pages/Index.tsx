@@ -394,7 +394,7 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-stone-50 dark:bg-stone-950 flex flex-col items-center justify-center p-4 transition-colors">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 transition-colors">
       {/* 设置和主题切换按钮 */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <ThemeToggle />
@@ -402,7 +402,7 @@ const Index = () => {
           variant="ghost" 
           size="icon" 
           onClick={() => setShowSettings(true)}
-          className="text-stone-500 dark:text-stone-500 hover:text-stone-800 dark:hover:text-stone-100"
+          className="text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-5 w-5" />
         </Button>
@@ -412,17 +412,17 @@ const Index = () => {
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
         {/* 欢迎标题区域 - V0 风格 */}
         <div className="text-center mb-12">
-          <p className="text-xs text-stone-500 dark:text-stone-500 font-light mb-3 tracking-wider">
+          <p className="text-xs text-muted-foreground font-light mb-3 tracking-wider">
             {new Date().toLocaleDateString(locale === 'zh-CN' ? "zh-CN" : "en-US", {
               weekday: "long",
               month: "long",
               day: "numeric",
             })}
           </p>
-          <h1 className="text-5xl md:text-6xl font-light text-stone-800 dark:text-stone-100 tracking-tight mb-2">
+          <h1 className="text-5xl md:text-6xl font-light text-foreground tracking-tight mb-2">
             {t('index.welcome')}
           </h1>
-          <p className="text-sm text-stone-500 dark:text-stone-500">{t('index.whatToDo')}</p>
+          <p className="text-sm text-muted-foreground">{t('index.whatToDo')}</p>
         </div>
 
         {/* V0 风格搜索栏 */}
@@ -434,13 +434,13 @@ const Index = () => {
               onChange={setQuery}
               onSubmit={handleSubmit}
               placeholder={isKagiSelected ? t('index.kagiPlaceholder') : t('index.placeholder')}
-              className="w-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-full pl-11 pr-24 py-3.5 text-stone-900 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-600 focus:outline-none focus:ring-1 focus:ring-stone-300 dark:focus:ring-stone-700 focus:border-transparent transition-all text-sm"
+              className="w-full bg-card border border-border rounded-full pl-11 pr-24 py-3.5 text-foreground placeholder-stone-400 dark:placeholder-stone-600 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-sm"
             />
 
             {/* 搜索按钮在输入框内 - V0 风格 */}
             <Button
               onClick={() => handleSubmit(query)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-9 px-5 rounded-full bg-stone-800 dark:bg-stone-100 hover:bg-stone-900 dark:hover:bg-white text-white dark:text-stone-900 font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-9 px-5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200"
             >
               {isKagiSelected ? t('index.ask') : t('common.search')}
             </Button>
@@ -453,21 +453,21 @@ const Index = () => {
                 key={engine.id}
                 type="button"
                 className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                  ? "bg-stone-800 dark:bg-stone-100 text-white dark:text-stone-900 shadow-sm"
-                  : "text-stone-600 dark:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 hover:text-stone-800 dark:hover:text-stone-200 bg-transparent"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-stone-600 dark:text-stone-400 hover:bg-accent hover:text-foreground bg-transparent"
                   }`}
                 onClick={() => handleSearchEngineChange(engine.id)}
                 onMouseDown={(e) => e.preventDefault()}
               >
                 {/* 快捷键数字提示 */}
                 {showShortcutHints && index < 9 && (
-                  <span className="absolute -top-2 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-stone-600 dark:bg-stone-400 text-white dark:text-stone-900 shadow-sm animate-in fade-in zoom-in-50 duration-150">
+                  <span className="absolute -top-2 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-primary text-primary-foreground shadow-sm animate-in fade-in zoom-in-50 duration-150">
                     {index + 1}
                   </span>
                 )}
                 {engine.name}
                 {engine.isAI && (
-                  <span className="ml-1 text-xs bg-stone-600 dark:bg-stone-700 text-white dark:text-stone-300 px-1.5 py-0.5 rounded">AI</span>
+                  <span className="ml-1 text-xs bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded">AI</span>
                 )}
               </button>
             ))}
@@ -482,7 +482,7 @@ const Index = () => {
                 <ContextMenuTrigger asChild>
                   <a
                     href={ensureUrlHasProtocol(link.url)}
-                    className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-stone-200/30 dark:hover:bg-stone-800/20 transition-colors duration-200 group cursor-pointer"
+                    className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
                     title={link.name}
                   >
                     <div className="group-hover:scale-110 transition-transform duration-200">
@@ -503,7 +503,7 @@ const Index = () => {
                   <ContextMenuSeparator />
                   <ContextMenuItem
                     onClick={() => confirmRemoveQuickLink(link.id)}
-                    className="text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                    className="text-destructive focus:text-destructive"
                   >
                     <Trash2 className="mr-2 h-4 w-4" />
                     {t('contextMenu.delete')}
@@ -521,7 +521,7 @@ const Index = () => {
           variant="ghost"
           size="icon"
           onClick={handleOpenBrowserSettings}
-          className="text-stone-400 dark:text-stone-600 hover:text-stone-600 dark:hover:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all duration-200"
+          className="text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-all duration-200"
           title={t('index.openBrowserSettings')}
         >
           <Settings2 className="h-5 w-5" />
@@ -530,7 +530,7 @@ const Index = () => {
           variant="ghost"
           size="icon"
           onClick={handleOpenExtensions}
-          className="text-stone-400 dark:text-stone-600 hover:text-stone-600 dark:hover:text-stone-400 hover:bg-stone-200/50 dark:hover:bg-stone-800/50 transition-all duration-200"
+          className="text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-all duration-200"
           title={t('index.openExtensions')}
         >
           <Puzzle className="h-5 w-5" />

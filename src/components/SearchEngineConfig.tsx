@@ -95,7 +95,7 @@ function SortableEngineItem({ engine, onSetDefault, onToggleEnabled, skipDeleteC
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground truncate">{engine.name}</span>
           {engine.isAI && (
-            <span className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-xs font-medium">
+            <span className="flex items-center gap-1 bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded text-xs font-medium">
               <Bot className="h-3 w-3" />
               AI
             </span>
@@ -107,7 +107,7 @@ function SortableEngineItem({ engine, onSetDefault, onToggleEnabled, skipDeleteC
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
         {engine.isDefault ? (
-          <span className="bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-0.5 rounded text-xs font-medium">
+          <span className="bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 px-2 py-0.5 rounded text-xs font-medium">
             {t('searchEngines.isDefault')}
           </span>
         ) : (
@@ -331,14 +331,14 @@ const SearchEngineConfig = ({ engines, onEnginesChange }: SearchEngineConfigProp
       </div>
 
       {/* Kagi Assistant 说明 */}
-      <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900">
+      <div className="p-3 rounded-lg bg-muted/50 border border-border">
         <div className="flex items-start gap-2">
-          <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <Bot className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div>
-            <h4 className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-1">
+            <h4 className="text-xs font-medium text-foreground mb-1">
               {t('searchEngines.aboutKagi')}
             </h4>
-            <p className="text-xs text-blue-700 dark:text-blue-300">
+            <p className="text-xs text-muted-foreground">
               {t('searchEngines.kagiDesc')}
             </p>
           </div>
