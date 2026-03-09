@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { t } from "@/lib/i18n";
+import {
+  getInlineCompletionCandidate,
+  getInlineCompletionText,
+  normalizeQuery,
+  rankSuggestions,
+  shouldUseFallbackPool,
+} from "@/lib/autocompleteMatching.js";
 
 interface SuggestionItem {
   id: string;
@@ -24,18 +31,9 @@ interface AutoCompleteProps {
 const INPUT_DEBOUNCE_MS = 120;
 const MAX_HISTORY_RESULTS = 30;
 const MAX_BOOKMARK_RESULTS = 20;
-const MAX_SUGGESTIONS = 10;
+const RECENT_HISTORY_RESULTS = 200;
+const RECENT_BOOKMARK_RESULTS = 200;
 const QUERY_CACHE_LIMIT = 100;
-
-const normalizeQuery = (text: string) => text.trim().toLowerCase();
-const normalizeUrlForMatch = (url: string) => url.toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '');
-const getInlineCompletionText = (url: string) => {
-  let text = url.replace(/^https?:\/\//, '').replace(/^www\./, '');
-  if (text.includes('/')) {
-    text = text.split('/')[0];
-  }
-  return text;
-};
 
 const buildFaviconUrl = (url: string) => {
   try {
@@ -46,76 +44,53 @@ const buildFaviconUrl = (url: string) => {
   }
 };
 
-const matchesSuggestion = (normalizedQuery: string, item: SuggestionItem) => {
-  const title = item.title.toLowerCase();
-  const rawUrl = item.url.toLowerCase();
-  const normalizedUrl = normalizeUrlForMatch(item.url);
-  return (
-    title.includes(normalizedQuery) ||
-    rawUrl.includes(normalizedQuery) ||
-    normalizedUrl.includes(normalizedQuery)
-  );
+const mapHistoryItem = (item: chrome.history.HistoryItem, index: number): SuggestionItem | null => {
+  const url = item.url || "";
+  if (!url) return null;
+
+  return {
+    id: `history-${url}-${index}`,
+    title: item.title || url,
+    url,
+    favicon: buildFaviconUrl(url),
+    type: 'history',
+    visitCount: item.visitCount,
+    typedCount: item.typedCount,
+    lastVisitTime: item.lastVisitTime
+  };
 };
 
-const getRecencyBoost = (lastVisitTime?: number) => {
-  if (!lastVisitTime) return 0;
+const mapBookmarkItem = (bookmark: chrome.bookmarks.BookmarkTreeNode, index: number): SuggestionItem | null => {
+  const url = bookmark.url || "";
+  if (!url) return null;
 
-  const ageInDays = (Date.now() - lastVisitTime) / (1000 * 60 * 60 * 24);
-  if (ageInDays <= 1) return 45;
-  if (ageInDays <= 7) return 35;
-  if (ageInDays <= 30) return 22;
-  if (ageInDays <= 90) return 10;
-  return 0;
+  return {
+    id: `bookmark-${url}-${index}`,
+    title: bookmark.title || url,
+    url,
+    favicon: buildFaviconUrl(url),
+    type: 'bookmark'
+  };
 };
 
-const scoreSuggestion = (normalizedQuery: string, item: SuggestionItem) => {
-  const title = item.title.toLowerCase();
-  const rawUrl = item.url.toLowerCase();
-  const normalizedUrl = normalizeUrlForMatch(item.url);
+const flattenBookmarks = (nodes: chrome.bookmarks.BookmarkTreeNode[]): chrome.bookmarks.BookmarkTreeNode[] => {
+  const result: chrome.bookmarks.BookmarkTreeNode[] = [];
 
-  let score = 0;
-
-  if (normalizedUrl.startsWith(normalizedQuery)) score += 120;
-  else if (rawUrl.startsWith(normalizedQuery)) score += 110;
-  else if (normalizedUrl.includes(normalizedQuery)) score += 45;
-
-  if (title.startsWith(normalizedQuery)) score += 80;
-  else if (title.includes(normalizedQuery)) score += 30;
-
-  if (item.type === 'bookmark') score += 35;
-
-  score += Math.min((item.typedCount || 0) * 10, 80);
-  score += Math.min(Math.log2((item.visitCount || 0) + 1) * 12, 60);
-  score += getRecencyBoost(item.lastVisitTime);
-
-  return score;
-};
-
-const rankSuggestions = (query: string, items: SuggestionItem[]): SuggestionItem[] => {
-  const normalizedQuery = normalizeQuery(query);
-  const bestByUrl = new Map<string, SuggestionItem>();
-
-  for (const item of items) {
-    if (!matchesSuggestion(normalizedQuery, item)) continue;
-
-    const score = scoreSuggestion(normalizedQuery, item);
-    const rankedItem = { ...item, score };
-    const dedupeKey = item.url.toLowerCase();
-    const existing = bestByUrl.get(dedupeKey);
-
-    if (!existing || (existing.score || 0) < score) {
-      bestByUrl.set(dedupeKey, rankedItem);
+  const visit = (node: chrome.bookmarks.BookmarkTreeNode) => {
+    if (node.url) {
+      result.push(node);
     }
+
+    for (const child of node.children || []) {
+      visit(child);
+    }
+  };
+
+  for (const node of nodes) {
+    visit(node);
   }
 
-  return [...bestByUrl.values()]
-    .sort((a, b) =>
-      (b.score || 0) - (a.score || 0) ||
-      (b.typedCount || 0) - (a.typedCount || 0) ||
-      (b.visitCount || 0) - (a.visitCount || 0) ||
-      (b.lastVisitTime || 0) - (a.lastVisitTime || 0)
-    )
-    .slice(0, MAX_SUGGESTIONS);
+  return result;
 };
 
 const setQueryCache = (cache: Map<string, SuggestionItem[]>, key: string, value: SuggestionItem[]) => {
@@ -143,6 +118,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
   const lastQueryRef = useRef("");
   const lastCandidatePoolRef = useRef<SuggestionItem[]>([]);
   const inlineCompletionBlockedByDeleteRef = useRef(false);
+  const inlineCompletionTargetRef = useRef<string | null>(null);
+  const inlineCompletionDisplayRef = useRef<string | null>(null);
+  const recentHistoryPoolRef = useRef<SuggestionItem[] | null>(null);
+  const recentHistoryPromiseRef = useRef<Promise<SuggestionItem[]> | null>(null);
+  const recentBookmarkPoolRef = useRef<SuggestionItem[] | null>(null);
+  const recentBookmarkPromiseRef = useRef<Promise<SuggestionItem[]> | null>(null);
 
   // 检查是否在Chrome扩展环境中
   const isExtension = typeof chrome !== 'undefined' && chrome.history && chrome.bookmarks;
@@ -161,21 +142,9 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
         maxResults: MAX_HISTORY_RESULTS
       });
 
-      return results.map((item, index) => {
-        const url = item.url || "";
-        if (!url) return null;
-
-        return {
-          id: `history-${url}-${index}`,
-          title: item.title || url,
-          url,
-          favicon: buildFaviconUrl(url),
-          type: 'history' as const,
-          visitCount: item.visitCount,
-          typedCount: item.typedCount,
-          lastVisitTime: item.lastVisitTime
-        };
-      }).filter((item): item is SuggestionItem => item !== null);
+      return results
+        .map(mapHistoryItem)
+        .filter((item): item is SuggestionItem => item !== null);
     } catch (error) {
       console.error('Failed to get Chrome history:', error);
       return [];
@@ -192,22 +161,73 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     try {
       const results = await chrome.bookmarks.search(query);
       return results
-        .filter((bookmark) => Boolean(bookmark.url))
-        .slice(0, MAX_BOOKMARK_RESULTS)
-        .map((bookmark, index) => {
-          const url = bookmark.url || "";
-          return {
-            id: `bookmark-${url}-${index}`,
-            title: bookmark.title || url,
-            url,
-            favicon: buildFaviconUrl(url),
-            type: 'bookmark' as const
-          };
-        });
+        .map(mapBookmarkItem)
+        .filter((item): item is SuggestionItem => item !== null)
+        .slice(0, MAX_BOOKMARK_RESULTS);
     } catch (error) {
       console.error('Failed to get Chrome bookmarks:', error);
       return [];
     }
+  }, [isExtension]);
+
+  const getRecentHistoryPool = useCallback(async (): Promise<SuggestionItem[]> => {
+    if (!isExtension) {
+      return [];
+    }
+
+    if (recentHistoryPoolRef.current) {
+      return recentHistoryPoolRef.current;
+    }
+
+    if (!recentHistoryPromiseRef.current) {
+      recentHistoryPromiseRef.current = chrome.history.search({
+        text: '',
+        startTime: 0,
+        maxResults: RECENT_HISTORY_RESULTS
+      }).then((results) => {
+        const mapped = results
+          .map(mapHistoryItem)
+          .filter((item): item is SuggestionItem => item !== null);
+        recentHistoryPoolRef.current = mapped;
+        return mapped;
+      }).catch((error) => {
+        console.error('Failed to get recent Chrome history:', error);
+        return [];
+      }).finally(() => {
+        recentHistoryPromiseRef.current = null;
+      });
+    }
+
+    return recentHistoryPromiseRef.current;
+  }, [isExtension]);
+
+  const getRecentBookmarkPool = useCallback(async (): Promise<SuggestionItem[]> => {
+    if (!isExtension) {
+      return [];
+    }
+
+    if (recentBookmarkPoolRef.current) {
+      return recentBookmarkPoolRef.current;
+    }
+
+    if (!recentBookmarkPromiseRef.current) {
+      recentBookmarkPromiseRef.current = chrome.bookmarks.getTree().then((tree) => {
+        const mapped = flattenBookmarks(tree)
+          .sort((a, b) => (b.dateAdded || 0) - (a.dateAdded || 0))
+          .slice(0, RECENT_BOOKMARK_RESULTS)
+          .map(mapBookmarkItem)
+          .filter((item): item is SuggestionItem => item !== null);
+        recentBookmarkPoolRef.current = mapped;
+        return mapped;
+      }).catch((error) => {
+        console.error('Failed to get bookmark pool:', error);
+        return [];
+      }).finally(() => {
+        recentBookmarkPromiseRef.current = null;
+      });
+    }
+
+    return recentBookmarkPromiseRef.current;
   }, [isExtension]);
 
   // 内联补全功能
@@ -215,22 +235,21 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     if (inlineCompletionBlockedByDeleteRef.current) return;
     if (!suggestions.length || !inputRef.current || isComposing || !query.trim()) return;
 
-    const normalizedQuery = query.toLowerCase();
-    const matchedSuggestion = suggestions.find((suggestion) => {
-      const text = getInlineCompletionText(suggestion.url).toLowerCase();
-      return text.startsWith(normalizedQuery) && text.length > normalizedQuery.length;
-    });
-    if (!matchedSuggestion) return;
+    const matchedCandidate = suggestions
+      .map((suggestion) => getInlineCompletionCandidate(query, suggestion.url))
+      .find((candidate) => candidate !== null);
 
-    const completionText = getInlineCompletionText(matchedSuggestion.url);
+    if (!matchedCandidate) return;
 
     const input = inputRef.current;
     const currentValue = input.value;
 
     if (currentValue === query) {
-      input.value = completionText;
-      input.setSelectionRange(query.length, completionText.length);
-      onChange(completionText);
+      input.value = matchedCandidate.previewText;
+      input.setSelectionRange(query.length, matchedCandidate.previewText.length);
+      inlineCompletionTargetRef.current = matchedCandidate.targetUrl;
+      inlineCompletionDisplayRef.current = matchedCandidate.previewText;
+      onChange(matchedCandidate.previewText);
     }
   }, [onChange, isComposing]);
 
@@ -242,6 +261,11 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     setSuggestions(nextSuggestions);
     setShowSuggestions(nextSuggestions.length > 0);
     setSelectedIndex(-1);
+
+    if (nextSuggestions.length === 0) {
+      inlineCompletionTargetRef.current = null;
+      inlineCompletionDisplayRef.current = null;
+    }
 
     const normalizedQuery = normalizeQuery(query);
     lastQueryRef.current = normalizedQuery;
@@ -261,6 +285,8 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       requestIdRef.current += 1;
       lastQueryRef.current = "";
       lastCandidatePoolRef.current = [];
+      inlineCompletionTargetRef.current = null;
+      inlineCompletionDisplayRef.current = null;
       setSuggestions([]);
       setShowSuggestions(false);
       return;
@@ -287,11 +313,16 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     try {
       let historyResults: SuggestionItem[] = [];
       let bookmarkResults: SuggestionItem[] = [];
+      let fallbackHistoryResults: SuggestionItem[] = [];
+      let fallbackBookmarkResults: SuggestionItem[] = [];
 
       if (isExtension) {
-        [historyResults, bookmarkResults] = await Promise.all([
+        const shouldUseFallback = shouldUseFallbackPool(query);
+        [historyResults, bookmarkResults, fallbackHistoryResults, fallbackBookmarkResults] = await Promise.all([
           getChromeHistory(query),
-          getChromeBookmarks(query)
+          getChromeBookmarks(query),
+          shouldUseFallback ? getRecentHistoryPool() : Promise.resolve([]),
+          shouldUseFallback ? getRecentBookmarkPool() : Promise.resolve([])
         ]);
       }
 
@@ -299,7 +330,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
         return;
       }
 
-      const candidatePool = [...historyResults, ...bookmarkResults];
+      const candidatePool = [
+        ...historyResults,
+        ...bookmarkResults,
+        ...fallbackHistoryResults,
+        ...fallbackBookmarkResults
+      ];
       lastCandidatePoolRef.current = candidatePool;
       const rankedSuggestions = rankSuggestions(query, candidatePool);
 
@@ -310,10 +346,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       }
 
       console.error('获取建议失败:', error);
+      inlineCompletionTargetRef.current = null;
+      inlineCompletionDisplayRef.current = null;
       setSuggestions([]);
       setShowSuggestions(false);
     }
-  }, [isExtension, getChromeHistory, getChromeBookmarks, commitSuggestions]);
+  }, [isExtension, getChromeHistory, getChromeBookmarks, getRecentHistoryPool, getRecentBookmarkPool, commitSuggestions]);
 
   const debouncedGetSuggestions = useCallback((query: string) => {
     if (debounceRef.current) {
@@ -335,6 +373,8 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       inlineCompletionBlockedByDeleteRef.current = false;
     }
 
+    inlineCompletionTargetRef.current = null;
+    inlineCompletionDisplayRef.current = null;
     onChange(newValue);
 
     if (!isComposing) {
@@ -349,16 +389,35 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
     setIsComposing(false);
     inlineCompletionBlockedByDeleteRef.current = false;
+    inlineCompletionTargetRef.current = null;
+    inlineCompletionDisplayRef.current = null;
     const newValue = e.currentTarget.value;
     onChange(newValue);
     debouncedGetSuggestions(newValue);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const input = inputRef.current;
+    const commitInlinePreview = () => {
+      if (!input || input.selectionStart === input.selectionEnd) return false;
+
+      e.preventDefault();
+      if (inlineCompletionTargetRef.current) {
+        const committedText = getInlineCompletionText(inlineCompletionTargetRef.current);
+        input.value = committedText;
+        inlineCompletionDisplayRef.current = committedText;
+        onChange(committedText);
+      }
+      input.setSelectionRange(input.value.length, input.value.length);
+      return true;
+    };
+
     if (isComposing) return;
 
     if (e.key === 'Backspace' || e.key === 'Delete') {
       inlineCompletionBlockedByDeleteRef.current = true;
+      inlineCompletionTargetRef.current = null;
+      inlineCompletionDisplayRef.current = null;
     } else if (
       e.key.length === 1 &&
       !e.ctrlKey &&
@@ -370,13 +429,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
 
     if (!showSuggestions) {
       if (e.key === 'Enter') {
-        onSubmit(getCurrentInputValue());
+        const currentValue = getCurrentInputValue();
+        const inlineTarget = inlineCompletionTargetRef.current;
+        const inlineDisplay = inlineCompletionDisplayRef.current;
+        onSubmit(inlineTarget && inlineDisplay === currentValue ? inlineTarget : currentValue);
       } else if (e.key === 'Tab' || e.key === 'ArrowRight') {
-        const input = inputRef.current;
-        if (input && input.selectionStart !== input.selectionEnd) {
-          e.preventDefault();
-          input.setSelectionRange(input.value.length, input.value.length);
-        }
+        commitInlinePreview();
       }
       return;
     }
@@ -397,22 +455,23 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
         if (selectedIndex >= 0 && suggestions[selectedIndex]) {
           handleSuggestionSelect(suggestions[selectedIndex]);
         } else {
-          onSubmit(getCurrentInputValue());
+          const currentValue = getCurrentInputValue();
+          const inlineTarget = inlineCompletionTargetRef.current;
+          const inlineDisplay = inlineCompletionDisplayRef.current;
+          onSubmit(inlineTarget && inlineDisplay === currentValue ? inlineTarget : currentValue);
         }
         break;
       case 'Escape':
         e.preventDefault();
+        inlineCompletionTargetRef.current = null;
+        inlineCompletionDisplayRef.current = null;
         setShowSuggestions(false);
         setSuggestions([]);
         setSelectedIndex(-1);
         break;
       case 'Tab':
       case 'ArrowRight': {
-        const input = inputRef.current;
-        if (input && input.selectionStart !== input.selectionEnd) {
-          e.preventDefault();
-          input.setSelectionRange(input.value.length, input.value.length);
-        }
+        commitInlinePreview();
         break;
       }
     }
@@ -420,6 +479,8 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
 
   const handleSuggestionSelect = (suggestion: SuggestionItem) => {
     inlineCompletionBlockedByDeleteRef.current = false;
+    inlineCompletionTargetRef.current = null;
+    inlineCompletionDisplayRef.current = null;
     onChange(suggestion.url);
     setShowSuggestions(false);
     setSuggestions([]);
@@ -449,6 +510,12 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       lastQueryRef.current = "";
       lastCandidatePoolRef.current = [];
       inlineCompletionBlockedByDeleteRef.current = false;
+      inlineCompletionTargetRef.current = null;
+      inlineCompletionDisplayRef.current = null;
+      recentHistoryPoolRef.current = null;
+      recentHistoryPromiseRef.current = null;
+      recentBookmarkPoolRef.current = null;
+      recentBookmarkPromiseRef.current = null;
       cache.clear();
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
