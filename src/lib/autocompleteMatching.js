@@ -60,6 +60,8 @@ export const shouldUseFallbackPool = (query) => {
 
 export const getInlineCompletionCandidate = (query, url) => {
   const normalizedQuery = normalizeQuery(query);
+  if (!normalizedQuery || /\s/.test(query)) return null;
+
   const match = getHostnamePrefixMatch(normalizedQuery, url);
   if (!match) return null;
 
@@ -164,3 +166,4 @@ export const rankSuggestions = (query, items) => {
     )
     .slice(0, MAX_SUGGESTIONS);
 };
+

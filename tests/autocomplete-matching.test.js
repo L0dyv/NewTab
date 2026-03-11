@@ -53,5 +53,8 @@ assert.deepEqual(getInlineCompletionCandidate("ok", okjikeSuggestion.url), {
 });
 
 assert.equal(getInlineCompletionCandidate("jik", okjikeSuggestion.url), null);
+assert.equal(getInlineCompletionCandidate("gemini ", "https://gemini.google.com/"), null);
+assert.equal(getInlineCompletionCandidate("gemini cli", "https://gemini.google.com/"), null);
 
 console.log("[PASS] autocomplete matching tests");
+
