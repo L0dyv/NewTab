@@ -10,6 +10,7 @@ import { getStoredValue, setStoredValue, migrateLocalStorageToSync } from "@/lib
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
+import HomepageGroupFilter from "@/components/HomepageGroupFilter";
 import { useI18n } from "@/hooks/useI18n";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 import {
@@ -28,6 +29,15 @@ const Index = () => {
   const [query, setQuery] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
+
+  // 首页分组 tab 过滤状态（纯本地 UI 偏好）
+  const [activeHomeTab, setActiveHomeTab] = useState(() => {
+    try {
+      return localStorage.getItem('homeActiveTab') || 'all';
+    } catch {
+      return 'all';
+    }
+  });
 
   const readOpenSearchInNewTab = () => {
     try {
@@ -213,6 +223,20 @@ const Index = () => {
     setStoredValue('currentSearchEngine', searchEngine);
   }, [searchEngine]);
 
+  // 持久化 homeActiveTab
+  useEffect(() => {
+    try {
+      localStorage.setItem('homeActiveTab', activeHomeTab);
+    } catch { /* ignore */ }
+  }, [activeHomeTab]);
+
+  // 选中的分组被删除时回退到 'all'
+  useEffect(() => {
+    if (activeHomeTab !== 'all' && !quickLinkGroups.some(g => g.id === activeHomeTab)) {
+      setActiveHomeTab('all');
+    }
+  }, [activeHomeTab, quickLinkGroups]);
+
   // 判断是否为URL
   const isURL = (text: string) => {
     // 不能包含空格
@@ -352,6 +376,12 @@ const Index = () => {
     }
     return result;
   }, [quickLinks, quickLinkGroups]);
+
+  // 按首页 tab 过滤分组数据
+  const filteredGroupedLinks = useMemo(() => {
+    if (activeHomeTab === 'all') return groupedLinks;
+    return groupedLinks.filter(({ group }) => group?.id === activeHomeTab);
+  }, [groupedLinks, activeHomeTab]);
 
   const hasAnyGroup = quickLinkGroups.length > 0;
 
@@ -514,13 +544,20 @@ const Index = () => {
           </div>
         </div>
 
+        {/* 首页分组 tab 过滤栏 */}
+        <HomepageGroupFilter
+          groups={quickLinkGroups}
+          activeTab={activeHomeTab}
+          onTabChange={setActiveHomeTab}
+        />
+
         {/* 快速链接区域 - 分组渲染（V0 风格）*/}
-        {groupedLinks.length > 0 && (
+        {filteredGroupedLinks.length > 0 && (
           <div className="w-full space-y-4">
-            {groupedLinks.map(({ group, links: groupLinks }) => (
+            {filteredGroupedLinks.map(({ group, links: groupLinks }) => (
               <div key={group?.id ?? '__ungrouped__'}>
-                {/* 分组标题：仅在有自定义分组时显示，未分组不显示标题 */}
-                {group && hasAnyGroup && (
+                {/* 分组标题：仅在 "全部" 视图且有自定义分组时显示 */}
+                {group && hasAnyGroup && activeHomeTab === 'all' && (
                   <div className="flex items-center gap-3 mb-2">
                     <div className="flex-1 h-px bg-border" />
                     <span className="text-xs tracking-widest text-muted-foreground/60 uppercase select-none">
