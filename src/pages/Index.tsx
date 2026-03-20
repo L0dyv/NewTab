@@ -464,7 +464,7 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center p-4 transition-colors">
+    <div className="h-screen bg-background flex flex-col items-center p-4 transition-colors overflow-hidden">
       <div className="flex-shrink-0 h-12 md:h-[18vh] md:max-h-[260px]" aria-hidden="true" />
 
       {/* 设置和主题切换按钮 */}
@@ -481,7 +481,7 @@ const Index = () => {
       </div>
 
       {/* 主搜索区域 */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center flex-shrink-0">
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center flex-1 min-h-0">
         {/* 欢迎标题区域 - V0 风格 */}
         <div className="text-center mb-12">
           <p className="text-xs text-muted-foreground font-light mb-3 tracking-wider">
@@ -551,96 +551,101 @@ const Index = () => {
           groups={quickLinkGroups}
           activeTab={activeHomeTab}
           onTabChange={setActiveHomeTab}
+          onAddGroup={(name) => {
+            const maxOrder = quickLinkGroups.reduce((max, g) => Math.max(max, g.order), -1);
+            const newGroup = { id: `group-${Date.now()}`, name, order: maxOrder + 1 };
+            setQuickLinkGroups([...quickLinkGroups, newGroup]);
+          }}
         />
 
         {/* 快速链接区域 - 分组渲染（V0 风格）*/}
         {filteredGroupedLinks.length > 0 && (
-          <div className="w-full space-y-4">
-            {filteredGroupedLinks.map(({ group, links: groupLinks }) => (
-              <div key={group?.id ?? '__ungrouped__'}>
-                {/* 分组标题：仅在 "全部" 视图且有自定义分组时显示 */}
-                {group && hasAnyGroup && activeHomeTab === 'all' && (
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="flex-1 h-px bg-border" />
-                    <span className="text-xs tracking-widest text-muted-foreground/60 uppercase select-none">
-                      {group.name}
-                    </span>
-                    <div className="flex-1 h-px bg-border" />
+          <div className="w-full flex-1 min-h-0 overflow-y-auto scrollbar-hide">
+            <div className="space-y-4">
+              {filteredGroupedLinks.map(({ group, links: groupLinks }) => (
+                <div key={group?.id ?? '__ungrouped__'}>
+                  {/* 分组标题：仅在 "全部" 视图且有自定义分组时显示 */}
+                  {group && hasAnyGroup && activeHomeTab === 'all' && (
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="flex-1 h-px bg-border" />
+                      <span className="text-xs tracking-widest text-muted-foreground/60 uppercase select-none">
+                        {group.name}
+                      </span>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
+                  )}
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-4 md:gap-6">
+                    {groupLinks.map((link) => (
+                      <ContextMenu key={link.id}>
+                        <ContextMenuTrigger asChild>
+                          <a
+                            href={ensureUrlHasProtocol(link.url)}
+                            className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
+                            title={link.name}
+                          >
+                            <div className="group-hover:scale-110 transition-transform duration-200">
+                              <QuickLinkIcon
+                                name={link.name}
+                                url={link.url}
+                                icon={link.icon}
+                                size={32}
+                              />
+                            </div>
+                          </a>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => copyToClipboard(link.url)}>
+                            <Copy className="mr-2 h-4 w-4" />
+                            {t('contextMenu.copyLink')}
+                          </ContextMenuItem>
+                          {hasAnyGroup && (
+                            <>
+                              <ContextMenuSub>
+                                <ContextMenuSubTrigger>
+                                  <FolderInput className="mr-2 h-4 w-4" />
+                                  {t('contextMenu.moveToGroup')}
+                                </ContextMenuSubTrigger>
+                                <ContextMenuSubContent>
+                                  <ContextMenuItem
+                                    onClick={() => moveToGroup(link.id, undefined)}
+                                    disabled={!link.groupId}
+                                  >
+                                    {t('contextMenu.ungrouped')}
+                                  </ContextMenuItem>
+                                  <ContextMenuSeparator />
+                                  {quickLinkGroups
+                                    .sort((a, b) => a.order - b.order)
+                                    .map((g) => (
+                                      <ContextMenuItem
+                                        key={g.id}
+                                        onClick={() => moveToGroup(link.id, g.id)}
+                                        disabled={link.groupId === g.id}
+                                      >
+                                        {g.name}
+                                      </ContextMenuItem>
+                                    ))}
+                                </ContextMenuSubContent>
+                              </ContextMenuSub>
+                            </>
+                          )}
+                          <ContextMenuSeparator />
+                          <ContextMenuItem
+                            onClick={() => confirmRemoveQuickLink(link.id)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {t('contextMenu.delete')}
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))}
                   </div>
-                )}
-                <div className="grid grid-cols-4 md:grid-cols-6 gap-4 md:gap-6">
-                  {groupLinks.map((link) => (
-                    <ContextMenu key={link.id}>
-                      <ContextMenuTrigger asChild>
-                        <a
-                          href={ensureUrlHasProtocol(link.url)}
-                          className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
-                          title={link.name}
-                        >
-                          <div className="group-hover:scale-110 transition-transform duration-200">
-                            <QuickLinkIcon
-                              name={link.name}
-                              url={link.url}
-                              icon={link.icon}
-                              size={32}
-                            />
-                          </div>
-                        </a>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem onClick={() => copyToClipboard(link.url)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          {t('contextMenu.copyLink')}
-                        </ContextMenuItem>
-                        {hasAnyGroup && (
-                          <>
-                            <ContextMenuSub>
-                              <ContextMenuSubTrigger>
-                                <FolderInput className="mr-2 h-4 w-4" />
-                                {t('contextMenu.moveToGroup')}
-                              </ContextMenuSubTrigger>
-                              <ContextMenuSubContent>
-                                <ContextMenuItem
-                                  onClick={() => moveToGroup(link.id, undefined)}
-                                  disabled={!link.groupId}
-                                >
-                                  {t('contextMenu.ungrouped')}
-                                </ContextMenuItem>
-                                <ContextMenuSeparator />
-                                {quickLinkGroups
-                                  .sort((a, b) => a.order - b.order)
-                                  .map((g) => (
-                                    <ContextMenuItem
-                                      key={g.id}
-                                      onClick={() => moveToGroup(link.id, g.id)}
-                                      disabled={link.groupId === g.id}
-                                    >
-                                      {g.name}
-                                    </ContextMenuItem>
-                                  ))}
-                              </ContextMenuSubContent>
-                            </ContextMenuSub>
-                          </>
-                        )}
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => confirmRemoveQuickLink(link.id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {t('contextMenu.delete')}
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  ))}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </div>
-
-      <div className="flex-1" aria-hidden="true" />
 
       {/* 右下角浏览器设置和扩展程序页面按钮 */}
       <div className="fixed bottom-4 right-4 flex items-center gap-2">
