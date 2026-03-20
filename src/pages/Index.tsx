@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Settings, Settings2, Search, Puzzle, Copy, Trash2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Settings, Settings2, Search, Puzzle, Copy, Trash2, FolderInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoComplete from "@/components/AutoComplete";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -11,21 +11,17 @@ import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
 import { useI18n } from "@/hooks/useI18n";
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-
-interface QuickLink {
-  id: string;
-  name: string;
-  url: string;
-  icon?: string;
-  enabled?: boolean;
-}
 
 const Index = () => {
   const { t, locale } = useI18n();
@@ -75,6 +71,17 @@ const Index = () => {
     return [];
   });
 
+  // 从 localStorage 加载快速链接分组
+  const [quickLinkGroups, setQuickLinkGroups] = useState<QuickLinkGroup[]>(() => {
+    try {
+      const saved = localStorage.getItem('quickLinkGroups');
+      if (saved) return JSON.parse(saved);
+    } catch {
+      /* ignore */
+    }
+    return [];
+  });
+
   // 从 localStorage 加载当前选中的搜索引擎
   const [searchEngine, setSearchEngine] = useState(() => {
     try {
@@ -95,6 +102,7 @@ const Index = () => {
       await migrateLocalStorageToSync([
         'searchEngines',
         'quickLinks',
+        'quickLinkGroups',
         'currentSearchEngine',
         'deletedBuiltinIds',
         'theme',
@@ -104,9 +112,10 @@ const Index = () => {
       ]);
 
       const fallbackEngineId = defaultSearchEngines.find(e => e.isDefault)?.id || "google";
-      const [storedEngines, storedLinks, storedEngineId] = await Promise.all([
+      const [storedEngines, storedLinks, storedGroups, storedEngineId] = await Promise.all([
         getStoredValue<SearchEngine[]>('searchEngines', defaultSearchEngines),
         getStoredValue<QuickLink[]>('quickLinks', []),
+        getStoredValue<QuickLinkGroup[]>('quickLinkGroups', []),
         getStoredValue<string>('currentSearchEngine', fallbackEngineId),
       ]);
 
@@ -120,6 +129,7 @@ const Index = () => {
         enabled: link.enabled !== undefined ? link.enabled : true,
       }));
       setQuickLinks(normalizedLinks);
+      setQuickLinkGroups(storedGroups);
 
       if (storedEngineId) {
         setSearchEngine(storedEngineId);
@@ -135,9 +145,10 @@ const Index = () => {
   useEffect(() => {
     const rehydrate = async () => {
       const fallbackEngineId = defaultSearchEngines.find(e => e.isDefault)?.id || "google";
-      const [storedEngines, storedLinks, storedEngineId] = await Promise.all([
+      const [storedEngines, storedLinks, storedGroups, storedEngineId] = await Promise.all([
         getStoredValue<SearchEngine[]>('searchEngines', defaultSearchEngines),
         getStoredValue<QuickLink[]>('quickLinks', []),
+        getStoredValue<QuickLinkGroup[]>('quickLinkGroups', []),
         getStoredValue<string>('currentSearchEngine', fallbackEngineId),
       ]);
 
@@ -149,6 +160,7 @@ const Index = () => {
         enabled: link.enabled !== undefined ? link.enabled : true,
       }));
       setQuickLinks(normalizedLinks);
+      setQuickLinkGroups(storedGroups);
 
       if (storedEngineId) {
         setSearchEngine(storedEngineId);
@@ -190,6 +202,11 @@ const Index = () => {
   useEffect(() => {
     setStoredValue('quickLinks', quickLinks);
   }, [quickLinks]);
+
+  // 保存快速链接分组到 localStorage
+  useEffect(() => {
+    setStoredValue('quickLinkGroups', quickLinkGroups);
+  }, [quickLinkGroups]);
 
   // 保存当前选中的搜索引擎到 localStorage
   useEffect(() => {
@@ -320,6 +337,29 @@ const Index = () => {
       document.execCommand('copy');
       document.body.removeChild(textArea);
     }
+  };
+
+  // 将链接按分组组织
+  const groupedLinks = useMemo(() => {
+    const enabledLinks = quickLinks.filter(l => l.enabled === true);
+    const sortedGroups = [...quickLinkGroups].sort((a, b) => a.order - b.order);
+    const ungrouped = enabledLinks.filter(l => !l.groupId);
+    const result: { group: QuickLinkGroup | null; links: QuickLink[] }[] = [];
+    if (ungrouped.length > 0) result.push({ group: null, links: ungrouped });
+    for (const g of sortedGroups) {
+      const gl = enabledLinks.filter(l => l.groupId === g.id);
+      if (gl.length > 0) result.push({ group: g, links: gl });
+    }
+    return result;
+  }, [quickLinks, quickLinkGroups]);
+
+  const hasAnyGroup = quickLinkGroups.length > 0;
+
+  // 移动链接到分组
+  const moveToGroup = (linkId: string, groupId: string | undefined) => {
+    setQuickLinks(links => links.map(link =>
+      link.id === linkId ? { ...link, groupId } : link
+    ));
   };
 
   useEffect(() => {
@@ -474,42 +514,88 @@ const Index = () => {
           </div>
         </div>
 
-        {/* 快速链接区域 - 仅图标样式（V0 风格）*/}
-        {quickLinks.filter(l => l.enabled === true).length > 0 && (
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-4 md:gap-6 w-full">
-            {quickLinks.filter(l => l.enabled === true).map((link) => (
-              <ContextMenu key={link.id}>
-                <ContextMenuTrigger asChild>
-                  <a
-                    href={ensureUrlHasProtocol(link.url)}
-                    className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
-                    title={link.name}
-                  >
-                    <div className="group-hover:scale-110 transition-transform duration-200">
-                      <QuickLinkIcon
-                        name={link.name}
-                        url={link.url}
-                        icon={link.icon}
-                        size={32}
-                      />
-                    </div>
-                  </a>
-                </ContextMenuTrigger>
-                <ContextMenuContent>
-                  <ContextMenuItem onClick={() => copyToClipboard(link.url)}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    {t('contextMenu.copyLink')}
-                  </ContextMenuItem>
-                  <ContextMenuSeparator />
-                  <ContextMenuItem
-                    onClick={() => confirmRemoveQuickLink(link.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {t('contextMenu.delete')}
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+        {/* 快速链接区域 - 分组渲染（V0 风格）*/}
+        {groupedLinks.length > 0 && (
+          <div className="w-full space-y-4">
+            {groupedLinks.map(({ group, links: groupLinks }) => (
+              <div key={group?.id ?? '__ungrouped__'}>
+                {/* 分组标题：仅在有自定义分组时显示，未分组不显示标题 */}
+                {group && hasAnyGroup && (
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs tracking-widest text-muted-foreground/60 uppercase select-none">
+                      {group.name}
+                    </span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                )}
+                <div className="grid grid-cols-4 md:grid-cols-6 gap-4 md:gap-6">
+                  {groupLinks.map((link) => (
+                    <ContextMenu key={link.id}>
+                      <ContextMenuTrigger asChild>
+                        <a
+                          href={ensureUrlHasProtocol(link.url)}
+                          className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
+                          title={link.name}
+                        >
+                          <div className="group-hover:scale-110 transition-transform duration-200">
+                            <QuickLinkIcon
+                              name={link.name}
+                              url={link.url}
+                              icon={link.icon}
+                              size={32}
+                            />
+                          </div>
+                        </a>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem onClick={() => copyToClipboard(link.url)}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          {t('contextMenu.copyLink')}
+                        </ContextMenuItem>
+                        {hasAnyGroup && (
+                          <>
+                            <ContextMenuSub>
+                              <ContextMenuSubTrigger>
+                                <FolderInput className="mr-2 h-4 w-4" />
+                                {t('contextMenu.moveToGroup')}
+                              </ContextMenuSubTrigger>
+                              <ContextMenuSubContent>
+                                <ContextMenuItem
+                                  onClick={() => moveToGroup(link.id, undefined)}
+                                  disabled={!link.groupId}
+                                >
+                                  {t('contextMenu.ungrouped')}
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
+                                {quickLinkGroups
+                                  .sort((a, b) => a.order - b.order)
+                                  .map((g) => (
+                                    <ContextMenuItem
+                                      key={g.id}
+                                      onClick={() => moveToGroup(link.id, g.id)}
+                                      disabled={link.groupId === g.id}
+                                    >
+                                      {g.name}
+                                    </ContextMenuItem>
+                                  ))}
+                              </ContextMenuSubContent>
+                            </ContextMenuSub>
+                          </>
+                        )}
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => confirmRemoveQuickLink(link.id)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {t('contextMenu.delete')}
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -548,6 +634,8 @@ const Index = () => {
           onSearchEnginesChange={setSearchEngines}
           quickLinks={quickLinks}
           onQuickLinksChange={setQuickLinks}
+          quickLinkGroups={quickLinkGroups}
+          onQuickLinkGroupsChange={setQuickLinkGroups}
         />
       </SettingsModal>
     </div>
