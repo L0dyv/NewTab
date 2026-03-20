@@ -9,14 +9,7 @@ import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
 import { useI18n } from "@/hooks/useI18n";
-
-interface QuickLink {
-    id: string;
-    name: string;
-    url: string;
-    icon?: string;
-    enabled?: boolean;
-}
+import type { QuickLink } from "@/lib/types";
 
 export default function Popup() {
     const { t } = useI18n();
@@ -83,6 +76,7 @@ export default function Popup() {
             await migrateLocalStorageToSync([
                 'searchEngines',
                 'quickLinks',
+                'quickLinkGroups',
                 'currentSearchEngine',
                 'deletedBuiltinIds',
                 'theme',
