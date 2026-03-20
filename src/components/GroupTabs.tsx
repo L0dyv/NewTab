@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Check, X, MoreHorizontal } from "lucide-react";
+import { Plus, Check, X, MoreHorizontal, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,6 +18,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useI18n } from "@/hooks/useI18n";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
@@ -28,6 +45,100 @@ interface GroupTabsProps {
   onActiveGroupFilterChange: (filter: string) => void;
   onGroupsChange: (groups: QuickLinkGroup[]) => void;
   onLinksChange: (links: QuickLink[]) => void;
+}
+
+// Sortable wrapper for individual group tabs
+function SortableGroupTab({
+  group,
+  isActive,
+  isRenaming,
+  renamingName,
+  linkCount,
+  tabClass,
+  onTabClick,
+  onRenameChange,
+  onRenameConfirm,
+  onRenameCancel,
+  onStartRename,
+  onDeleteRequest,
+  renameInputRef,
+  t,
+}: {
+  group: QuickLinkGroup;
+  isActive: boolean;
+  isRenaming: boolean;
+  renamingName: string;
+  linkCount: number;
+  tabClass: (active: boolean) => string;
+  onTabClick: () => void;
+  onRenameChange: (value: string) => void;
+  onRenameConfirm: () => void;
+  onRenameCancel: () => void;
+  onStartRename: () => void;
+  onDeleteRequest: () => void;
+  renameInputRef: React.RefObject<HTMLInputElement>;
+  t: (key: string) => string;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: group.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  if (isRenaming) {
+    return (
+      <div ref={setNodeRef} style={style} className="relative inline-flex items-center">
+        <div className="inline-flex items-center gap-1">
+          <Input
+            ref={renameInputRef}
+            value={renamingName}
+            onChange={(e) => onRenameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onRenameConfirm();
+              if (e.key === 'Escape') onRenameCancel();
+            }}
+            className="h-7 w-24 text-xs"
+          />
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onRenameConfirm}>
+            <Check className="h-3 w-3" />
+          </Button>
+          <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onRenameCancel}>
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative inline-flex items-center">
+      <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0 touch-none">
+        <GripVertical className="h-3 w-3" />
+      </div>
+      <button
+        type="button"
+        className={tabClass(isActive)}
+        onClick={onTabClick}
+      >
+        {group.name}({linkCount})
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-0.5 text-muted-foreground hover:text-foreground">
+            <MoreHorizontal className="h-3 w-3" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[120px]">
+          <DropdownMenuItem onClick={onStartRename}>
+            {t('quickLinks.renameGroup')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={onDeleteRequest}
+            className="text-destructive focus:text-destructive"
+          >
+            {t('quickLinks.deleteGroup')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
 }
 
 export default function GroupTabs({
@@ -46,6 +157,11 @@ export default function GroupTabs({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     if (isAdding && addInputRef.current) {
@@ -102,6 +218,20 @@ export default function GroupTabs({
     setDeleteConfirmId(null);
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = sortedGroups.findIndex(g => g.id === active.id);
+      const newIndex = sortedGroups.findIndex(g => g.id === over?.id);
+      const reordered = arrayMove(sortedGroups, oldIndex, newIndex);
+      // Recompute order values
+      onGroupsChange(groups.map(g => {
+        const idx = reordered.findIndex(rg => rg.id === g.id);
+        return idx >= 0 ? { ...g, order: idx } : g;
+      }));
+    }
+  };
+
   const tabClass = (active: boolean) =>
     `inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none whitespace-nowrap ${
       active
@@ -129,59 +259,34 @@ export default function GroupTabs({
         {t('quickLinks.ungrouped')}({ungroupedCount})
       </button>
 
-      {/* Group tabs */}
-      {sortedGroups.map((group) => (
-        <div key={group.id} className="relative inline-flex items-center">
-          {renamingId === group.id ? (
-            <div className="inline-flex items-center gap-1">
-              <Input
-                ref={renameInputRef}
-                value={renamingName}
-                onChange={(e) => setRenamingName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') renameGroup();
-                  if (e.key === 'Escape') { setRenamingId(null); setRenamingName(""); }
-                }}
-                className="h-7 w-24 text-xs"
-              />
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={renameGroup}>
-                <Check className="h-3 w-3" />
-              </Button>
-              <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => { setRenamingId(null); setRenamingName(""); }}>
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-          ) : (
-            <div className="inline-flex items-center">
-              <button
-                type="button"
-                className={tabClass(activeGroupFilter === group.id)}
-                onClick={() => onActiveGroupFilterChange(group.id)}
-              >
-                {group.name}({getGroupLinkCount(group.id)})
-              </button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-0.5 text-muted-foreground hover:text-foreground">
-                    <MoreHorizontal className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="min-w-[120px]">
-                  <DropdownMenuItem onClick={() => { setRenamingId(group.id); setRenamingName(group.name); }}>
-                    {t('quickLinks.renameGroup')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setDeleteConfirmId(group.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    {t('quickLinks.deleteGroup')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
-        </div>
-      ))}
+      {/* Group tabs - sortable */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={sortedGroups.map(g => g.id)} strategy={horizontalListSortingStrategy}>
+          {sortedGroups.map((group) => (
+            <SortableGroupTab
+              key={group.id}
+              group={group}
+              isActive={activeGroupFilter === group.id}
+              isRenaming={renamingId === group.id}
+              renamingName={renamingName}
+              linkCount={getGroupLinkCount(group.id)}
+              tabClass={tabClass}
+              onTabClick={() => onActiveGroupFilterChange(group.id)}
+              onRenameChange={setRenamingName}
+              onRenameConfirm={renameGroup}
+              onRenameCancel={() => { setRenamingId(null); setRenamingName(""); }}
+              onStartRename={() => { setRenamingId(group.id); setRenamingName(group.name); }}
+              onDeleteRequest={() => setDeleteConfirmId(group.id)}
+              renameInputRef={renameInputRef}
+              t={t}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* Add new group */}
       {isAdding ? (
