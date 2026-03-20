@@ -1,14 +1,8 @@
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from './defaultSearchEngines';
 import { setStoredValue, removeStoredValue } from './storage';
+import type { QuickLink, QuickLinkGroup } from './types';
 
-// 快速链接类型定义
-export interface QuickLink {
-    id: string;
-    name: string;
-    url: string;
-    icon?: string;
-    enabled?: boolean;
-}
+export type { QuickLink } from './types';
 
 // 主题类型
 export type Theme = 'light' | 'dark' | 'system';
@@ -35,10 +29,12 @@ export interface ExportedSettings {
     openSearchInNewTabNewTab?: boolean;
     /** 新标签页打开搜索结果（仅 popup） */
     openSearchInNewTabPopup?: boolean;
+    /** 快速链接分组 */
+    quickLinkGroups?: QuickLinkGroup[];
 }
 
 // 当前配置版本
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 /**
  * 从 localStorage 获取所有设置
@@ -73,6 +69,15 @@ export function getAllSettings(): ExportedSettings {
         }
     })();
 
+    const quickLinkGroups: QuickLinkGroup[] = (() => {
+        try {
+            const saved = localStorage.getItem('quickLinkGroups');
+            return saved ? JSON.parse(saved) : [];
+        } catch {
+            return [];
+        }
+    })();
+
     const theme = (localStorage.getItem('theme') as Theme) ?? 'system';
 
     const legacyOpenSearchInNewTab = localStorage.getItem('openSearchInNewTab') === 'true';
@@ -98,6 +103,7 @@ export function getAllSettings(): ExportedSettings {
         openSearchInNewTab: openSearchInNewTabNewTab,
         openSearchInNewTabNewTab,
         openSearchInNewTabPopup,
+        quickLinkGroups,
     };
 }
 
@@ -169,6 +175,24 @@ export function validateSettings(data: unknown): { valid: boolean; error?: strin
         return { valid: false, error: '无效的配置数据：theme 必须是 light、dark 或 system' };
     }
 
+    // v2: 校验 quickLinkGroups（可选字段，v1 数据中不存在）
+    if (settings.quickLinkGroups !== undefined) {
+        if (!Array.isArray(settings.quickLinkGroups)) {
+            return { valid: false, error: '无效的配置数据：quickLinkGroups 必须是数组' };
+        }
+        for (const group of settings.quickLinkGroups) {
+            if (!group.id || typeof group.id !== 'string') {
+                return { valid: false, error: '无效的分组配置：缺少 id' };
+            }
+            if (!group.name || typeof group.name !== 'string') {
+                return { valid: false, error: '无效的分组配置：缺少 name' };
+            }
+            if (typeof group.order !== 'number') {
+                return { valid: false, error: '无效的分组配置：缺少 order' };
+            }
+        }
+    }
+
     return { valid: true };
 }
 
@@ -194,9 +218,13 @@ export async function importSettings(data: ExportedSettings): Promise<void> {
         enabled: link.enabled !== false,
     }));
 
+    // v1->v2 迁移：无 quickLinkGroups 时初始化为空数组
+    const quickLinkGroups: QuickLinkGroup[] = data.quickLinkGroups ?? [];
+
     // 保存所有设置到 localStorage
     localStorage.setItem('searchEngines', JSON.stringify(mergedEngines));
     localStorage.setItem('quickLinks', JSON.stringify(normalizedQuickLinks));
+    localStorage.setItem('quickLinkGroups', JSON.stringify(quickLinkGroups));
     localStorage.setItem('currentSearchEngine', currentEngineId);
     localStorage.setItem('deletedBuiltinIds', JSON.stringify(data.deletedBuiltinIds));
     localStorage.setItem('theme', data.theme);
@@ -213,6 +241,7 @@ export async function importSettings(data: ExportedSettings): Promise<void> {
     await Promise.allSettled([
         setStoredValue('searchEngines', mergedEngines),
         setStoredValue('quickLinks', normalizedQuickLinks),
+        setStoredValue('quickLinkGroups', quickLinkGroups),
         setStoredValue('currentSearchEngine', currentEngineId),
         setStoredValue('deletedBuiltinIds', data.deletedBuiltinIds),
         setStoredValue('theme', data.theme),
@@ -306,6 +335,7 @@ export function importSettingsFromFile(file: File): Promise<void> {
 export function resetAllSettings(): void {
     localStorage.removeItem('searchEngines');
     localStorage.removeItem('quickLinks');
+    localStorage.removeItem('quickLinkGroups');
     localStorage.removeItem('currentSearchEngine');
     localStorage.removeItem('deletedBuiltinIds');
     localStorage.removeItem('openSearchInNewTab');

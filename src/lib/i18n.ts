@@ -171,9 +171,24 @@ const messages: Record<Locale, Record<string, string>> = {
         'language.current': '当前语言',
         'language.auto': '自动检测（基于浏览器语言）',
 
+        // 快速链接分组
+        'quickLinks.allGroups': '全部',
+        'quickLinks.ungrouped': '未分组',
+        'quickLinks.newGroup': '新建分组',
+        'quickLinks.groupName': '分组名称',
+        'quickLinks.groupNamePlaceholder': '输入分组名称',
+        'quickLinks.renameGroup': '重命名',
+        'quickLinks.deleteGroup': '删除分组',
+        'quickLinks.deleteGroupConfirm': '确认删除此分组？',
+        'quickLinks.deleteGroupWarning': '删除分组后，组内链接将移到"未分组"。',
+        'quickLinks.deleteGroupBtn': '确认删除',
+        'quickLinks.group': '分组',
+
         // 右键菜单
         'contextMenu.copyLink': '复制链接地址',
         'contextMenu.delete': '删除',
+        'contextMenu.moveToGroup': '移动到分组',
+        'contextMenu.ungrouped': '未分组',
     },
     'en': {
         // Common
@@ -339,9 +354,24 @@ const messages: Record<Locale, Record<string, string>> = {
         'language.current': 'Current Language',
         'language.auto': 'Auto-detect (based on browser language)',
 
+        // Quick link groups
+        'quickLinks.allGroups': 'All',
+        'quickLinks.ungrouped': 'Ungrouped',
+        'quickLinks.newGroup': 'New Group',
+        'quickLinks.groupName': 'Group Name',
+        'quickLinks.groupNamePlaceholder': 'Enter group name',
+        'quickLinks.renameGroup': 'Rename',
+        'quickLinks.deleteGroup': 'Delete Group',
+        'quickLinks.deleteGroupConfirm': 'Confirm delete this group?',
+        'quickLinks.deleteGroupWarning': 'Links in this group will be moved to "Ungrouped".',
+        'quickLinks.deleteGroupBtn': 'Confirm Delete',
+        'quickLinks.group': 'Group',
+
         // Context menu
         'contextMenu.copyLink': 'Copy Link',
         'contextMenu.delete': 'Delete',
+        'contextMenu.moveToGroup': 'Move to Group',
+        'contextMenu.ungrouped': 'Ungrouped',
     },
 };
 
