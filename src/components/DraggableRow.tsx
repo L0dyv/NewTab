@@ -68,8 +68,8 @@ const DraggableRow = ({
         // 编辑模式下不应用拖拽属性，避免干扰中文输入法
         return (
             <div ref={setNodeRef} style={style}
-                className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-muted/30">
-                <div className={`flex-1 grid grid-cols-1 gap-2 ${groups.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+                className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-muted/30 overflow-hidden max-w-full">
+                <div className={`flex-1 min-w-0 grid grid-cols-1 gap-2 ${groups.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                     <Input
                         value={editingLink.name}
                         onChange={(e) => onEditingLinkChange({ ...editingLink, name: e.target.value })}
@@ -122,7 +122,7 @@ const DraggableRow = ({
 
     return (
         <div ref={setNodeRef} style={style}
-            className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-background">
+            className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-background overflow-hidden max-w-full">
             <div {...attributes} {...listeners} className="drag-handle text-muted-foreground hover:text-foreground flex-shrink-0 touch-none">
                 <GripVertical className="h-4 w-4" />
             </div>
@@ -134,14 +134,22 @@ const DraggableRow = ({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium text-foreground truncate">{link.name}</span>
-                    {link.groupId && (() => {
-                        const group = groups.find(g => g.id === link.groupId);
-                        return group ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
-                                {group.name}
-                            </span>
-                        ) : null;
-                    })()}
+                    {groups.length > 0 && (
+                        <select
+                            value={link.groupId ?? ''}
+                            onChange={(e) => {
+                                e.stopPropagation();
+                                onGroupChange(link.id, e.target.value || undefined);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] h-5 pl-1.5 pr-4 py-0 rounded bg-muted text-muted-foreground flex-shrink-0 border-0 outline-none focus:ring-1 focus:ring-ring cursor-pointer appearance-auto"
+                        >
+                            <option value="">{t('quickLinks.ungrouped')}</option>
+                            {sortedGroups.map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{link.url}</div>
             </div>
