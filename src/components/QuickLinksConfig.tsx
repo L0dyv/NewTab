@@ -32,18 +32,14 @@ import {
 } from '@dnd-kit/sortable';
 import { useI18n } from "@/hooks/useI18n";
 import { isLocalHostname } from "@/lib/url";
-
-interface QuickLink {
-  id: string;
-  name: string;
-  url: string;
-  icon?: string;
-  enabled?: boolean;
-}
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
+import GroupTabs from "@/components/GroupTabs";
 
 interface QuickLinksConfigProps {
   links: QuickLink[];
   onLinksChange: (links: QuickLink[]) => void;
+  groups: QuickLinkGroup[];
+  onGroupsChange: (groups: QuickLinkGroup[]) => void;
   hideHeader?: boolean;
 }
 
@@ -78,9 +74,10 @@ const normalizeUrl = (url: string): string => {
   return trimmedUrl;
 };
 
-const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
+const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: QuickLinksConfigProps) => {
   const { t } = useI18n();
-  const [newLink, setNewLink] = useState({ name: "", url: "" });
+  const [activeGroupFilter, setActiveGroupFilter] = useState('all');
+  const [newLink, setNewLink] = useState({ name: "", url: "", groupId: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingLink, setEditingLink] = useState({ name: "", url: "" });
@@ -157,6 +154,13 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
     }
   };
 
+  // 根据分组过滤显示链接
+  const filteredLinks = activeGroupFilter === 'all'
+    ? links
+    : activeGroupFilter === '__ungrouped__'
+      ? links.filter(l => !l.groupId)
+      : links.filter(l => l.groupId === activeGroupFilter);
+
   const addLink = async () => {
     if (newLink.url) {
       setIsLoading(true);
@@ -170,8 +174,9 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
         }
 
         const id = linkName.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now();
-        onLinksChange([...links, { name: linkName, url: normalizedUrl, id, enabled: true }]);
-        setNewLink({ name: "", url: "" });
+        const groupId = newLink.groupId || undefined;
+        onLinksChange([...links, { name: linkName, url: normalizedUrl, id, enabled: true, groupId }]);
+        setNewLink({ name: "", url: "", groupId: newLink.groupId });
       } finally {
         setIsLoading(false);
       }
@@ -242,21 +247,33 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-0">
+      {/* 分组标签栏 */}
+      <GroupTabs
+        groups={groups}
+        links={links}
+        activeGroupFilter={activeGroupFilter}
+        onActiveGroupFilterChange={setActiveGroupFilter}
+        onGroupsChange={onGroupsChange}
+        onLinksChange={onLinksChange}
+      />
+
+      <div className="p-6 space-y-6">
       {/* 现有快速链接列表 */}
-      {links.length > 0 && (
+      {filteredLinks.length > 0 && (
         <div className="rounded-lg border border-border overflow-hidden">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={handleDragEnd}
           >
-            <SortableContext items={links.map(l => l.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={filteredLinks.map(l => l.id)} strategy={verticalListSortingStrategy}>
               <div>
-                {links.map((link) => (
+                {filteredLinks.map((link) => (
                   <DraggableRow
                     key={link.id}
                     link={link}
+                    groups={groups}
                     isEditing={editingId === link.id}
                     editingLink={editingLink}
                     isEditLoading={isEditLoading}
@@ -268,6 +285,9 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
                     onRemoveLink={removeLink}
                     onToggleEnabled={toggleEnabled}
                     onConfirmDelete={setConfirmDeleteId}
+                    onGroupChange={(id, groupId) => {
+                      onLinksChange(links.map(l => l.id === id ? { ...l, groupId } : l));
+                    }}
                   />
                 ))}
               </div>
@@ -279,7 +299,7 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
       {/* 添加新快速链接 */}
       <div className="p-4 rounded-lg bg-muted/50 border border-border">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('quickLinks.addNew')}</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
             <Label htmlFor="linkName" className="text-xs">{t('quickLinks.name')}</Label>
             <Input
@@ -306,6 +326,22 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
               }}
             />
           </div>
+          {groups.length > 0 && (
+            <div>
+              <Label htmlFor="linkGroup" className="text-xs">{t('quickLinks.group')}</Label>
+              <select
+                id="linkGroup"
+                value={newLink.groupId}
+                onChange={(e) => setNewLink({ ...newLink, groupId: e.target.value })}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">{t('quickLinks.ungrouped')}</option>
+                {groups.sort((a, b) => a.order - b.order).map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex items-end">
             <Button onClick={addLink} size="sm" className="w-full h-9" disabled={isLoading || !newLink.url}>
               {isLoading ? (
@@ -356,6 +392,7 @@ const QuickLinksConfig = ({ links, onLinksChange }: QuickLinksConfigProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 };

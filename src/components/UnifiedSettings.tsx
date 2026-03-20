@@ -6,6 +6,7 @@ import SearchEngineConfig from "./SearchEngineConfig";
 import QuickLinksConfig from "./QuickLinksConfig";
 import GeneralSettingsSection from "./GeneralSettingsSection";
 import DataManagementSection from "./DataManagementSection";
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 type SettingsCategory = 'general' | 'searchEngines' | 'quickLinks' | 'dataManagement';
 
@@ -18,19 +19,13 @@ interface SearchEngine {
   enabled?: boolean;
 }
 
-interface QuickLink {
-  id: string;
-  name: string;
-  url: string;
-  icon?: string;
-  enabled?: boolean;
-}
-
 interface UnifiedSettingsProps {
   searchEngines: SearchEngine[];
   onSearchEnginesChange: (engines: SearchEngine[]) => void;
   quickLinks: QuickLink[];
   onQuickLinksChange: (links: QuickLink[]) => void;
+  quickLinkGroups: QuickLinkGroup[];
+  onQuickLinkGroupsChange: (groups: QuickLinkGroup[]) => void;
   onSettingsChanged?: () => void;
 }
 
@@ -64,6 +59,8 @@ export default function UnifiedSettings({
   onSearchEnginesChange,
   quickLinks,
   onQuickLinksChange,
+  quickLinkGroups,
+  onQuickLinkGroupsChange,
   onSettingsChanged,
 }: UnifiedSettingsProps) {
   const { t } = useI18n();
@@ -109,6 +106,8 @@ export default function UnifiedSettings({
           <QuickLinksConfig
             links={quickLinks}
             onLinksChange={onQuickLinksChange}
+            groups={quickLinkGroups}
+            onGroupsChange={onQuickLinkGroupsChange}
           />
         )}
         {activeCategory === 'dataManagement' && (

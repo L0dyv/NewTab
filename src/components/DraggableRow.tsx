@@ -5,17 +5,11 @@ import { Trash2, GripVertical, Loader2, Pencil, Check, X } from "lucide-react";
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { t } from "@/lib/i18n";
-
-interface QuickLink {
-    id: string;
-    name: string;
-    url: string;
-    icon?: string;
-    enabled?: boolean;
-}
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 interface DraggableRowProps {
     link: QuickLink;
+    groups: QuickLinkGroup[];
     isEditing: boolean;
     editingLink: { name: string; url: string };
     isEditLoading: boolean;
@@ -27,10 +21,12 @@ interface DraggableRowProps {
     onRemoveLink: (id: string) => void;
     onToggleEnabled: (id: string, enabled: boolean) => void;
     onConfirmDelete: (id: string) => void;
+    onGroupChange: (id: string, groupId: string | undefined) => void;
 }
 
 const DraggableRow = ({
     link,
+    groups,
     isEditing,
     editingLink,
     isEditLoading,
@@ -42,6 +38,7 @@ const DraggableRow = ({
     onRemoveLink,
     onToggleEnabled,
     onConfirmDelete,
+    onGroupChange,
 }: DraggableRowProps) => {
     const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: link.id });
     const style = { transform: CSS.Transform.toString(transform), transition };
@@ -65,12 +62,14 @@ const DraggableRow = ({
         onStartEditing(link);
     };
 
+    const sortedGroups = [...groups].sort((a, b) => a.order - b.order);
+
     if (isEditing) {
         // 编辑模式下不应用拖拽属性，避免干扰中文输入法
         return (
             <div ref={setNodeRef} style={style}
                 className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-muted/30">
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className={`flex-1 grid grid-cols-1 gap-2 ${groups.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                     <Input
                         value={editingLink.name}
                         onChange={(e) => onEditingLinkChange({ ...editingLink, name: e.target.value })}
@@ -86,6 +85,19 @@ const DraggableRow = ({
                         disabled={isEditLoading}
                         className="h-8 text-sm"
                     />
+                    {groups.length > 0 && (
+                        <select
+                            value={link.groupId ?? ''}
+                            onChange={(e) => onGroupChange(link.id, e.target.value || undefined)}
+                            disabled={isEditLoading}
+                            className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        >
+                            <option value="">{t('quickLinks.ungrouped')}</option>
+                            {sortedGroups.map(g => (
+                                <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                        </select>
+                    )}
                 </div>
                 <Button
                     variant="ghost"
@@ -120,7 +132,17 @@ const DraggableRow = ({
                 className="flex-shrink-0"
             />
             <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-foreground truncate">{link.name}</div>
+                <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium text-foreground truncate">{link.name}</span>
+                    {link.groupId && (() => {
+                        const group = groups.find(g => g.id === link.groupId);
+                        return group ? (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
+                                {group.name}
+                            </span>
+                        ) : null;
+                    })()}
+                </div>
                 <div className="text-xs text-muted-foreground truncate">{link.url}</div>
             </div>
             <div className="flex-shrink-0 flex gap-1">
