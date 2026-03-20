@@ -464,7 +464,9 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 transition-colors">
+    <div className="min-h-screen bg-background flex flex-col items-center p-4 transition-colors">
+      <div className="flex-shrink-0 h-12 md:h-[18vh] md:max-h-[260px]" aria-hidden="true" />
+
       {/* 设置和主题切换按钮 */}
       <div className="absolute top-4 right-4 flex items-center gap-2">
         <ThemeToggle />
@@ -479,7 +481,7 @@ const Index = () => {
       </div>
 
       {/* 主搜索区域 */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center flex-shrink-0">
         {/* 欢迎标题区域 - V0 风格 */}
         <div className="text-center mb-12">
           <p className="text-xs text-muted-foreground font-light mb-3 tracking-wider">
@@ -637,6 +639,8 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      <div className="flex-1" aria-hidden="true" />
 
       {/* 右下角浏览器设置和扩展程序页面按钮 */}
       <div className="fixed bottom-4 right-4 flex items-center gap-2">
