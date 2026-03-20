@@ -184,4 +184,8 @@
   .dark .drag-handle-active {
     cursor: grabbing;
   }
+
+  /* 隐藏滚动条（保持滚动功能） */
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
