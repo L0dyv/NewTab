@@ -14,6 +14,7 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
     const [loadFailed, setLoadFailed] = useState(false);
     const [stage, setStage] = useState(0);
     const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+    const [bgDone, setBgDone] = useState(false);
 
     const normalizedUrl = useMemo(() => ensureUrlHasProtocol(url), [url]);
 
@@ -55,6 +56,7 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
         setStage(0);
         setLoadFailed(false);
         setResolvedSrc(null);
+        setBgDone(false);
     }, [url]);
 
     // 首先尝试从内存缓存同步获取
@@ -63,25 +65,31 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
         const cached = getCachedFavicon(pageUrl);
         if (cached) {
             setResolvedSrc(cached);
+            setBgDone(true);
+            return;
+        }
+
+        // 非扩展环境没有 background，直接放行到网络 fallback
+        if (!isExtension || !chrome?.runtime?.sendMessage) {
+            setBgDone(true);
             return;
         }
 
         // 内存缓存没有，才发消息给 background
-        if (isExtension && chrome?.runtime?.sendMessage) {
-            try {
-                chrome.runtime.sendMessage({ type: 'RESOLVE_FAVICON', url: pageUrl }, (res) => {
-                    if (res && (res as { success?: boolean; src?: string }).success && (res as { src?: string }).src) {
-                        const src = (res as { src?: string }).src || null;
-                        if (src) {
-                            // 更新内存缓存
-                            updateMemoryCache(pageUrl, src);
-                            setResolvedSrc(src);
-                        }
+        try {
+            chrome.runtime.sendMessage({ type: 'RESOLVE_FAVICON', url: pageUrl }, (res) => {
+                if (res && (res as { success?: boolean; src?: string }).success && (res as { src?: string }).src) {
+                    const src = (res as { src?: string }).src || null;
+                    if (src) {
+                        // 更新内存缓存
+                        updateMemoryCache(pageUrl, src);
+                        setResolvedSrc(src);
                     }
-                });
-            } catch {
-                setResolvedSrc(null);
-            }
+                }
+                setBgDone(true);
+            });
+        } catch {
+            setBgDone(true);
         }
     }, [isExtension, pageUrl]);
 
@@ -96,18 +104,28 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
         );
     }
 
+    // 确定要加载的图片 src：
+    // 1. 有 resolvedSrc 时直接用（来自缓存或 background 解析）
+    // 2. bgDone 但没有 resolvedSrc 时，才 fallback 到网络 sources
+    // 3. 还在等 background 响应时，不加载任何图片（显示占位符）
+    const imgSrc = resolvedSrc ?? (bgDone ? sources[stage] : null);
+
     return (
         <div
             className={`relative flex items-center justify-center rounded-md ${className}`}
             style={{ width: size, height: size }}
         >
-            {!loadFailed && (
+            {imgSrc && !loadFailed && (
                 <img
-                    src={resolvedSrc ?? sources[stage]}
+                    src={imgSrc}
                     alt={name}
                     className="w-full h-full object-contain"
                     onError={() => {
-                        if (stage < sources.length - 1) {
+                        if (resolvedSrc) {
+                            // resolvedSrc 加载失败，进入 fallback 流程
+                            setResolvedSrc(null);
+                            setStage(0);
+                        } else if (stage < sources.length - 1) {
                             setStage(stage + 1);
                         } else {
                             setLoadFailed(true);
@@ -115,7 +133,7 @@ const QuickLinkIcon = ({ name, url, icon, size = 32, className = "" }: QuickLink
                     }}
                 />
             )}
-            {loadFailed && (
+            {(!imgSrc || loadFailed) && (
                 <div
                     className="w-full h-full rounded-md bg-secondary text-secondary-foreground font-semibold flex items-center justify-center"
                     style={{ fontSize: size * 0.5 }}
