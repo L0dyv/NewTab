@@ -51,6 +51,13 @@ const getHostnamePrefixMatch = (normalizedQuery, url) => {
 const hasHostnamePrefixMatch = (normalizedQuery, url) =>
   getHostnamePrefixMatch(normalizedQuery, url) !== null;
 
+const getHostnameMatchPriority = (normalizedQuery, url) => {
+  const match = getHostnamePrefixMatch(normalizedQuery, url);
+  if (match?.matchType === "host-prefix") return 2;
+  if (match?.matchType === "label-prefix") return 1;
+  return 0;
+};
+
 export const shouldUseFallbackPool = (query) => {
   const normalizedQuery = normalizeQuery(query);
   if (!normalizedQuery) return false;
@@ -147,11 +154,22 @@ export const rankSuggestions = (query, items) => {
     if (!matchesSuggestion(normalizedQuery, item)) continue;
 
     const score = scoreSuggestion(normalizedQuery, item);
-    const rankedItem = { ...item, score };
+    const rankedItem = {
+      ...item,
+      score,
+      matchPriority: getHostnameMatchPriority(normalizedQuery, item.url),
+    };
     const dedupeKey = item.url.toLowerCase();
     const existing = bestByUrl.get(dedupeKey);
 
-    if (!existing || (existing.score || 0) < score) {
+    if (
+      !existing ||
+      (existing.matchPriority || 0) < rankedItem.matchPriority ||
+      (
+        (existing.matchPriority || 0) === rankedItem.matchPriority &&
+        (existing.score || 0) < score
+      )
+    ) {
       bestByUrl.set(dedupeKey, rankedItem);
     }
   }
@@ -159,6 +177,7 @@ export const rankSuggestions = (query, items) => {
   return [...bestByUrl.values()]
     .sort(
       (a, b) =>
+        (b.matchPriority || 0) - (a.matchPriority || 0) ||
         (b.score || 0) - (a.score || 0) ||
         (b.typedCount || 0) - (a.typedCount || 0) ||
         (b.visitCount || 0) - (a.visitCount || 0) ||

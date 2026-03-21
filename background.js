@@ -128,6 +128,468 @@ const normalizeQuery = (text = "") => text.trim().toLowerCase();
 
 const normalizeUrlForMatch = (url = "") => url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
 
+const HOSTNAME_INDEX_STORAGE_KEY = "hostnameAutocompleteIndexV1";
+const HOSTNAME_INDEX_MAX_PREFIX_LENGTH = 8;
+const HOSTNAME_INDEX_BUCKET_SIZE = 12;
+const HOSTNAME_INDEX_QUERY_LIMIT = 12;
+const HOSTNAME_INDEX_REBUILD_DEBOUNCE_MS = 15000;
+const HOSTNAME_INDEX_PERSIST_DEBOUNCE_MS = 5000;
+const HISTORY_INDEX_SLICE_MAX_RESULTS = 500;
+const HISTORY_INDEX_MIN_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+let hostnameIndexCache = null;
+let hostnameIndexLoadPromise = null;
+let hostnameIndexBuildPromise = null;
+let hostnameIndexPersistTimer = null;
+let hostnameIndexRebuildTimer = null;
+let hostnameIndexDirty = false;
+
+const getRecencyBoost = (lastVisitTime) => {
+    if (!lastVisitTime) return 0;
+
+    const ageInDays = (Date.now() - lastVisitTime) / (1000 * 60 * 60 * 24);
+    if (ageInDays <= 1) return 45;
+    if (ageInDays <= 7) return 35;
+    if (ageInDays <= 30) return 22;
+    if (ageInDays <= 90) return 10;
+    return 0;
+};
+
+const getUrlPathBonus = (url) => {
+    try {
+        const parsed = new URL(url);
+        return parsed.pathname === "/" || parsed.pathname === "" ? 18 : 0;
+    } catch {
+        return 0;
+    }
+};
+
+const getHostnamePrefixMatch = (normalizedQuery, url) => {
+    if (!normalizedQuery) return null;
+
+    const normalizedUrl = normalizeUrlForMatch(url || "");
+    const slashIndex = normalizedUrl.indexOf("/");
+    const hostname = slashIndex >= 0 ? normalizedUrl.slice(0, slashIndex) : normalizedUrl;
+    if (!hostname) return null;
+
+    if (hostname.startsWith(normalizedQuery)) {
+        return { matchType: "host-prefix" };
+    }
+
+    for (const label of hostname.split(".")) {
+        if (label.startsWith(normalizedQuery)) {
+            return { matchType: "label-prefix" };
+        }
+    }
+
+    return null;
+};
+
+const getHostnameMatchPriority = (normalizedQuery, url) => {
+    const match = getHostnamePrefixMatch(normalizedQuery, url);
+    if (match?.matchType === "host-prefix") return 2;
+    if (match?.matchType === "label-prefix") return 1;
+    return 0;
+};
+
+const getHostnameIndexEntryStrength = (entry) => {
+    let score = 0;
+
+    if (entry.type === "bookmark") score += 45;
+    score += Math.min((entry.typedCount || 0) * 10, 80);
+    score += Math.min(Math.log2((entry.visitCount || 0) + 1) * 12, 60);
+    score += getRecencyBoost(entry.lastVisitTime);
+    score += getUrlPathBonus(entry.url);
+
+    return score;
+};
+
+const getCanonicalHostnameSource = (entry) => ({
+    hostname: entry.hostname,
+    title: entry.title,
+    url: entry.url,
+    type: entry.sourceType || entry.type,
+    visitCount: entry.sourceVisitCount ?? entry.visitCount ?? 0,
+    typedCount: entry.sourceTypedCount ?? entry.typedCount ?? 0,
+    lastVisitTime: entry.sourceLastVisitTime ?? entry.lastVisitTime ?? 0,
+});
+
+const chooseHostnameIndexEntry = (current, next) => {
+    if (!current) return next;
+
+    const currentStrength = getHostnameIndexEntryStrength(getCanonicalHostnameSource(current));
+    const nextStrength = getHostnameIndexEntryStrength(next);
+    const preferred = nextStrength > currentStrength ? next : current;
+    const bookmarked = current.type === "bookmark" || next.type === "bookmark";
+
+    return {
+        hostname: preferred.hostname,
+        title: preferred.title,
+        url: preferred.url,
+        type: bookmarked ? "bookmark" : "history",
+        visitCount: (current.visitCount || 0) + (next.visitCount || 0),
+        typedCount: (current.typedCount || 0) + (next.typedCount || 0),
+        lastVisitTime: Math.max(current.lastVisitTime || 0, next.lastVisitTime || 0),
+        sourceType: preferred.type,
+        sourceVisitCount: preferred.visitCount || 0,
+        sourceTypedCount: preferred.typedCount || 0,
+        sourceLastVisitTime: preferred.lastVisitTime || 0,
+    };
+};
+
+const toHostnameIndexEntry = (item) => {
+    const url = item?.url || "";
+    const hostname = normalizeUrlForMatch(url).split("/")[0];
+    if (!hostname || !url) return null;
+
+    return {
+        hostname,
+        title: item.title || url,
+        url,
+        type: item.type === "bookmark" ? "bookmark" : "history",
+        visitCount: item.visitCount || 0,
+        typedCount: item.typedCount || 0,
+        lastVisitTime: item.lastVisitTime || 0,
+        sourceType: item.type === "bookmark" ? "bookmark" : "history",
+        sourceVisitCount: item.visitCount || 0,
+        sourceTypedCount: item.typedCount || 0,
+        sourceLastVisitTime: item.lastVisitTime || 0,
+    };
+};
+
+const getHostnameIndexPrefixes = (hostname, maxPrefixLength = HOSTNAME_INDEX_MAX_PREFIX_LENGTH) => {
+    if (!hostname) return [];
+
+    const prefixes = new Set();
+    const addPrefixes = (value) => {
+        const upperBound = Math.min(maxPrefixLength, value.length);
+        for (let index = 1; index <= upperBound; index += 1) {
+            prefixes.add(value.slice(0, index));
+        }
+    };
+
+    addPrefixes(hostname);
+    for (const label of hostname.split(".")) {
+        addPrefixes(label);
+    }
+
+    return [...prefixes];
+};
+
+const sortHostnameBucketItems = (items, maxBucketSize = HOSTNAME_INDEX_BUCKET_SIZE) =>
+    items
+        .sort((a, b) =>
+            b.matchPriority - a.matchPriority
+            || b.strength - a.strength
+            || a.hostname.localeCompare(b.hostname)
+        )
+        .slice(0, maxBucketSize)
+        .map((item) => item.hostname);
+
+const createHostnameIndexSnapshot = (items, options = {}) => {
+    const maxPrefixLength = options.maxPrefixLength || HOSTNAME_INDEX_MAX_PREFIX_LENGTH;
+    const maxBucketSize = options.maxBucketSize || HOSTNAME_INDEX_BUCKET_SIZE;
+    const entriesByHost = {};
+
+    for (const item of items || []) {
+        const entry = toHostnameIndexEntry(item);
+        if (!entry) continue;
+        entriesByHost[entry.hostname] = chooseHostnameIndexEntry(entriesByHost[entry.hostname], entry);
+    }
+
+    const buckets = {};
+    for (const entry of Object.values(entriesByHost)) {
+        const strength = getHostnameIndexEntryStrength(entry);
+        for (const prefix of getHostnameIndexPrefixes(entry.hostname, maxPrefixLength)) {
+            const bucket = buckets[prefix] || new Map();
+            const nextItem = {
+                hostname: entry.hostname,
+                strength,
+                matchPriority: getHostnameMatchPriority(prefix, entry.hostname),
+            };
+            const existing = bucket.get(entry.hostname);
+            if (
+                !existing
+                || existing.matchPriority < nextItem.matchPriority
+                || (existing.matchPriority === nextItem.matchPriority && existing.strength < nextItem.strength)
+            ) {
+                bucket.set(entry.hostname, nextItem);
+            }
+            buckets[prefix] = bucket;
+        }
+    }
+
+    const prefixBuckets = {};
+    for (const [prefix, bucket] of Object.entries(buckets)) {
+        prefixBuckets[prefix] = sortHostnameBucketItems([...bucket.values()], maxBucketSize);
+    }
+
+    return {
+        version: 1,
+        generatedAt: Date.now(),
+        maxPrefixLength,
+        maxBucketSize,
+        entriesByHost,
+        prefixBuckets,
+    };
+};
+
+const upsertHostnameIndexSnapshot = (snapshot, item) => {
+    const entry = toHostnameIndexEntry(item);
+    if (!entry) return snapshot;
+
+    const maxPrefixLength = snapshot?.maxPrefixLength || HOSTNAME_INDEX_MAX_PREFIX_LENGTH;
+    const maxBucketSize = snapshot?.maxBucketSize || HOSTNAME_INDEX_BUCKET_SIZE;
+    const entriesByHost = {
+        ...(snapshot?.entriesByHost || {}),
+    };
+    entriesByHost[entry.hostname] = chooseHostnameIndexEntry(entriesByHost[entry.hostname], entry);
+
+    const prefixBuckets = {
+        ...(snapshot?.prefixBuckets || {}),
+    };
+
+    for (const prefix of getHostnameIndexPrefixes(entry.hostname, maxPrefixLength)) {
+        const hostnames = new Set(prefixBuckets[prefix] || []);
+        hostnames.add(entry.hostname);
+        prefixBuckets[prefix] = sortHostnameBucketItems(
+            [...hostnames]
+                .map((hostname) => {
+                    const bucketEntry = entriesByHost[hostname];
+                    if (!bucketEntry) return null;
+                    return {
+                        hostname,
+                        strength: getHostnameIndexEntryStrength(bucketEntry),
+                        matchPriority: getHostnameMatchPriority(prefix, hostname),
+                    };
+                })
+                .filter(Boolean),
+            maxBucketSize
+        );
+    }
+
+    return {
+        version: snapshot?.version || 1,
+        generatedAt: Date.now(),
+        maxPrefixLength,
+        maxBucketSize,
+        entriesByHost,
+        prefixBuckets,
+    };
+};
+
+const queryHostnameIndexSnapshot = (snapshot, query, limit = HOSTNAME_INDEX_QUERY_LIMIT) => {
+    const normalizedQuery = normalizeQuery(query);
+    if (!normalizedQuery || /\s/.test(query)) return [];
+
+    const prefixKey = normalizedQuery.slice(0, snapshot?.maxPrefixLength || HOSTNAME_INDEX_MAX_PREFIX_LENGTH);
+    const bucket = snapshot?.prefixBuckets?.[prefixKey] || [];
+    const results = [];
+
+    for (const hostname of bucket) {
+        const entry = snapshot?.entriesByHost?.[hostname];
+        if (!entry) continue;
+        const match = getHostnamePrefixMatch(normalizedQuery, hostname);
+        if (!match) continue;
+
+        results.push({
+            id: `host-${hostname}`,
+            title: entry.title,
+            url: entry.url,
+            type: entry.type,
+            visitCount: entry.visitCount,
+            typedCount: entry.typedCount,
+            lastVisitTime: entry.lastVisitTime,
+            matchType: match.matchType,
+        });
+
+        if (results.length >= limit) {
+            break;
+        }
+    }
+
+    return results;
+};
+
+const loadHostnameIndexSnapshot = async () => {
+    if (hostnameIndexCache) return hostnameIndexCache;
+    if (hostnameIndexLoadPromise) return hostnameIndexLoadPromise;
+
+    hostnameIndexLoadPromise = (async () => {
+        try {
+            const data = await chrome.storage.local.get(HOSTNAME_INDEX_STORAGE_KEY);
+            const snapshot = data?.[HOSTNAME_INDEX_STORAGE_KEY];
+            if (snapshot?.version === 1) {
+                hostnameIndexCache = snapshot;
+                hostnameIndexDirty = false;
+                return snapshot;
+            }
+        } catch { }
+        return null;
+    })().finally(() => {
+        hostnameIndexLoadPromise = null;
+    });
+
+    return hostnameIndexLoadPromise;
+};
+
+const scheduleHostnameIndexPersist = () => {
+    if (hostnameIndexPersistTimer) {
+        clearTimeout(hostnameIndexPersistTimer);
+    }
+
+    hostnameIndexPersistTimer = setTimeout(async () => {
+        hostnameIndexPersistTimer = null;
+        if (!hostnameIndexCache || !hostnameIndexDirty) return;
+
+        try {
+            await chrome.storage.local.set({
+                [HOSTNAME_INDEX_STORAGE_KEY]: hostnameIndexCache,
+            });
+            hostnameIndexDirty = false;
+        } catch { }
+    }, HOSTNAME_INDEX_PERSIST_DEBOUNCE_MS);
+};
+
+const setHostnameIndexCache = (snapshot) => {
+    hostnameIndexCache = snapshot;
+    hostnameIndexDirty = true;
+    scheduleHostnameIndexPersist();
+    return snapshot;
+};
+
+const mergeHistoryItemsByUrl = (items) => {
+    const byUrl = new Map();
+    for (const item of items || []) {
+        if (!item?.url) continue;
+        const existing = byUrl.get(item.url);
+        if (!existing) {
+            byUrl.set(item.url, item);
+            continue;
+        }
+        byUrl.set(item.url, {
+            ...existing,
+            title: existing.title || item.title || item.url,
+            visitCount: Math.max(existing.visitCount || 0, item.visitCount || 0),
+            typedCount: Math.max(existing.typedCount || 0, item.typedCount || 0),
+            lastVisitTime: Math.max(existing.lastVisitTime || 0, item.lastVisitTime || 0),
+        });
+    }
+    return [...byUrl.values()];
+};
+
+const collectHistoryBootstrapItems = async (startTime, endTime) => {
+    const results = await chrome.history.search({
+        text: "",
+        startTime,
+        endTime,
+        maxResults: HISTORY_INDEX_SLICE_MAX_RESULTS,
+    });
+
+    if (
+        results.length < HISTORY_INDEX_SLICE_MAX_RESULTS
+        || (endTime - startTime) <= HISTORY_INDEX_MIN_WINDOW_MS
+    ) {
+        return results;
+    }
+
+    const midpoint = Math.floor((startTime + endTime) / 2);
+    if (midpoint <= startTime || midpoint >= endTime) {
+        return results;
+    }
+
+    const [older, newer] = await Promise.all([
+        collectHistoryBootstrapItems(startTime, midpoint),
+        collectHistoryBootstrapItems(midpoint + 1, endTime),
+    ]);
+
+    return mergeHistoryItemsByUrl([...older, ...newer]);
+};
+
+const flattenBookmarkTree = (nodes) => {
+    const result = [];
+    const visit = (node) => {
+        if (node?.url) {
+            result.push(node);
+        }
+        for (const child of node?.children || []) {
+            visit(child);
+        }
+    };
+    for (const node of nodes || []) {
+        visit(node);
+    }
+    return result;
+};
+
+const rebuildHostnameIndexSnapshot = async () => {
+    if (hostnameIndexBuildPromise) return hostnameIndexBuildPromise;
+
+    hostnameIndexBuildPromise = (async () => {
+        const [historyItems, bookmarkTree] = await Promise.all([
+            collectHistoryBootstrapItems(0, Date.now()).catch(() => []),
+            chrome.bookmarks.getTree().catch(() => []),
+        ]);
+
+        const bookmarkItems = flattenBookmarkTree(bookmarkTree)
+            .map((item) => ({
+                title: item.title || item.url || "",
+                url: item.url || "",
+                type: "bookmark",
+                lastVisitTime: item.dateAdded || 0,
+            }))
+            .filter((item) => Boolean(item.url));
+
+        const snapshot = createHostnameIndexSnapshot([
+            ...historyItems.map((item) => ({
+                title: item.title || item.url || "",
+                url: item.url || "",
+                type: "history",
+                visitCount: item.visitCount,
+                typedCount: item.typedCount,
+                lastVisitTime: item.lastVisitTime,
+            })),
+            ...bookmarkItems,
+        ]);
+
+        hostnameIndexCache = snapshot;
+        hostnameIndexDirty = false;
+        await chrome.storage.local.set({
+            [HOSTNAME_INDEX_STORAGE_KEY]: snapshot,
+        }).catch(() => { });
+        return snapshot;
+    })().finally(() => {
+        hostnameIndexBuildPromise = null;
+    });
+
+    return hostnameIndexBuildPromise;
+};
+
+const scheduleHostnameIndexRebuild = (delay = HOSTNAME_INDEX_REBUILD_DEBOUNCE_MS) => {
+    if (hostnameIndexRebuildTimer) {
+        clearTimeout(hostnameIndexRebuildTimer);
+    }
+
+    hostnameIndexRebuildTimer = setTimeout(() => {
+        hostnameIndexRebuildTimer = null;
+        rebuildHostnameIndexSnapshot().catch(() => { });
+    }, delay);
+};
+
+const ensureHostnameIndexSnapshot = async () => {
+    const snapshot = await loadHostnameIndexSnapshot();
+    if (snapshot) return snapshot;
+
+    rebuildHostnameIndexSnapshot().catch(() => { });
+    return null;
+};
+
+const getHostnameIndexCandidates = async (query, limit = HOSTNAME_INDEX_QUERY_LIMIT) => {
+    const snapshot = await ensureHostnameIndexSnapshot();
+    if (!snapshot) return [];
+    return queryHostnameIndexSnapshot(snapshot, query, limit);
+};
+
 const getStorageValue = async (key, fallbackValue) => {
     try {
         const syncData = await chrome.storage.sync.get(key);
@@ -240,32 +702,26 @@ const openByDisposition = (url, disposition) => {
     chrome.tabs.create({ url, active: true });
 };
 
-const getRecencyBoost = (lastVisitTime) => {
-    if (!lastVisitTime) return 0;
-
-    const ageInDays = (Date.now() - lastVisitTime) / (1000 * 60 * 60 * 24);
-    if (ageInDays <= 1) return 45;
-    if (ageInDays <= 7) return 35;
-    if (ageInDays <= 30) return 22;
-    if (ageInDays <= 90) return 10;
-    return 0;
-};
-
 const matchCandidate = (normalized, candidate) => {
     const title = (candidate.title || "").toLowerCase();
     const rawUrl = (candidate.url || "").toLowerCase();
     const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
-    return title.includes(normalized) || rawUrl.includes(normalized) || normalizedUrl.includes(normalized);
+    return Boolean(getHostnamePrefixMatch(normalized, candidate.url || ""))
+        || title.includes(normalized)
+        || rawUrl.includes(normalized)
+        || normalizedUrl.includes(normalized);
 };
 
 const scoreCandidate = (normalized, candidate) => {
     const title = (candidate.title || "").toLowerCase();
     const rawUrl = (candidate.url || "").toLowerCase();
     const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
+    const hostnameMatch = getHostnamePrefixMatch(normalized, candidate.url || "");
 
     let score = 0;
 
-    if (normalizedUrl.startsWith(normalized)) score += 120;
+    if (hostnameMatch?.matchType === "host-prefix") score += 140;
+    else if (hostnameMatch?.matchType === "label-prefix") score += 115;
     else if (rawUrl.startsWith(normalized)) score += 110;
     else if (normalizedUrl.includes(normalized)) score += 45;
 
@@ -289,18 +745,30 @@ const rankOmniboxCandidates = (query, candidates) => {
         if (!candidate?.url || !matchCandidate(normalized, candidate)) continue;
 
         const score = scoreCandidate(normalized, candidate);
-        const next = { ...candidate, score };
+        const next = {
+            ...candidate,
+            score,
+            matchPriority: getHostnameMatchPriority(normalized, candidate.url),
+        };
         const dedupeKey = candidate.url.toLowerCase();
         const existing = bestByUrl.get(dedupeKey);
 
-        if (!existing || (existing.score || 0) < score) {
+        if (
+            !existing
+            || (existing.matchPriority || 0) < next.matchPriority
+            || (
+                (existing.matchPriority || 0) === next.matchPriority
+                && (existing.score || 0) < score
+            )
+        ) {
             bestByUrl.set(dedupeKey, next);
         }
     }
 
     return [...bestByUrl.values()]
         .sort((a, b) =>
-            (b.score || 0) - (a.score || 0)
+            (b.matchPriority || 0) - (a.matchPriority || 0)
+            || (b.score || 0) - (a.score || 0)
             || (b.typedCount || 0) - (a.typedCount || 0)
             || (b.visitCount || 0) - (a.visitCount || 0)
             || (b.lastVisitTime || 0) - (a.lastVisitTime || 0)
@@ -361,12 +829,13 @@ const buildOmniboxSuggestions = async (query, engine) => {
     const escapedQuery = escapeOmnibox(query);
     const escapedEngineName = escapeOmnibox(engine.name || "Google");
 
-    const [historyCandidates, bookmarkCandidates] = await Promise.all([
+    const [indexedCandidates, historyCandidates, bookmarkCandidates] = await Promise.all([
+        getHostnameIndexCandidates(query, OMNIBOX_MAX_RESULTS),
         getOmniboxHistoryCandidates(query),
         getOmniboxBookmarkCandidates(query),
     ]);
 
-    const ranked = rankOmniboxCandidates(query, [...historyCandidates, ...bookmarkCandidates]);
+    const ranked = rankOmniboxCandidates(query, [...indexedCandidates, ...historyCandidates, ...bookmarkCandidates]);
     const suggestions = [
         {
             content: `search:${query}`,
@@ -470,7 +939,97 @@ if (chrome.storage?.onChanged) {
     });
 }
 
+if (chrome.runtime?.onInstalled) {
+    chrome.runtime.onInstalled.addListener(() => {
+        loadHostnameIndexSnapshot().then((snapshot) => {
+            if (!snapshot) {
+                scheduleHostnameIndexRebuild(100);
+            }
+        }).catch(() => { });
+    });
+}
+
+if (chrome.runtime?.onStartup) {
+    chrome.runtime.onStartup.addListener(() => {
+        loadHostnameIndexSnapshot().then((snapshot) => {
+            if (!snapshot) {
+                scheduleHostnameIndexRebuild(100);
+            }
+        }).catch(() => { });
+    });
+}
+
+if (chrome.history?.onVisited) {
+    chrome.history.onVisited.addListener((item) => {
+        (async () => {
+            const snapshot = await ensureHostnameIndexSnapshot();
+            if (!snapshot) return;
+
+            setHostnameIndexCache(upsertHostnameIndexSnapshot(snapshot, {
+                title: item.title || item.url || "",
+                url: item.url || "",
+                type: "history",
+                visitCount: item.visitCount,
+                typedCount: item.typedCount,
+                lastVisitTime: item.lastVisitTime,
+            }));
+        })().catch(() => { });
+    });
+}
+
+if (chrome.history?.onVisitRemoved) {
+    chrome.history.onVisitRemoved.addListener(() => {
+        scheduleHostnameIndexRebuild();
+    });
+}
+
+if (chrome.bookmarks?.onCreated) {
+    chrome.bookmarks.onCreated.addListener((id, bookmark) => {
+        if (!bookmark?.url) return;
+
+        loadHostnameIndexSnapshot().then((snapshot) => {
+            if (!snapshot) {
+                scheduleHostnameIndexRebuild(100);
+                return;
+            }
+
+            setHostnameIndexCache(upsertHostnameIndexSnapshot(snapshot, {
+                title: bookmark.title || bookmark.url || "",
+                url: bookmark.url || "",
+                type: "bookmark",
+                lastVisitTime: bookmark.dateAdded || Date.now(),
+            }));
+        }).catch(() => { });
+    });
+}
+
+if (chrome.bookmarks?.onChanged) {
+    chrome.bookmarks.onChanged.addListener(() => {
+        scheduleHostnameIndexRebuild();
+    });
+}
+
+if (chrome.bookmarks?.onRemoved) {
+    chrome.bookmarks.onRemoved.addListener(() => {
+        scheduleHostnameIndexRebuild();
+    });
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message && message.type === "GET_HOSTNAME_AUTOCOMPLETE") {
+        (async () => {
+            try {
+                const query = String(message.query || "");
+                const limit = Number.isFinite(message.limit) ? message.limit : HOSTNAME_INDEX_QUERY_LIMIT;
+                const candidates = await getHostnameIndexCandidates(query, limit);
+                sendResponse({ success: true, candidates });
+            } catch {
+                sendResponse({ success: false, candidates: [] });
+            }
+        })();
+        return true;
+    }
+
     // 获取当前活动标签页信息
     if (message && message.type === "GET_CURRENT_TAB") {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

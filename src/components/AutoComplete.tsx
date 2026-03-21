@@ -170,6 +170,43 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     }
   }, [isExtension]);
 
+  const getIndexedHostnameSuggestions = useCallback(async (text: string): Promise<SuggestionItem[]> => {
+    const query = text.trim();
+    if (!isExtension || !query || query.includes(" ") || !chrome.runtime?.sendMessage) {
+      return [];
+    }
+
+    return new Promise((resolve) => {
+      const runtimeApi = chrome.runtime as typeof chrome.runtime & {
+        lastError?: unknown;
+      };
+
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: "GET_HOSTNAME_AUTOCOMPLETE",
+            query,
+            limit: MAX_HISTORY_RESULTS,
+          },
+          (response: { success?: boolean; candidates?: SuggestionItem[] } | undefined) => {
+            if (runtimeApi.lastError || !response?.success || !Array.isArray(response.candidates)) {
+              resolve([]);
+              return;
+            }
+
+            resolve(
+              response.candidates.filter((item): item is SuggestionItem =>
+                Boolean(item?.id && item?.url)
+              )
+            );
+          }
+        );
+      } catch {
+        resolve([]);
+      }
+    });
+  }, [isExtension]);
+
   const getRecentHistoryPool = useCallback(async (): Promise<SuggestionItem[]> => {
     if (!isExtension) {
       return [];
@@ -310,20 +347,22 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
 
     const currentRequestId = ++requestIdRef.current;
 
-    try {
-      let historyResults: SuggestionItem[] = [];
-      let bookmarkResults: SuggestionItem[] = [];
-      let fallbackHistoryResults: SuggestionItem[] = [];
-      let fallbackBookmarkResults: SuggestionItem[] = [];
+      try {
+        let indexedHostnameResults: SuggestionItem[] = [];
+        let historyResults: SuggestionItem[] = [];
+        let bookmarkResults: SuggestionItem[] = [];
+        let fallbackHistoryResults: SuggestionItem[] = [];
+        let fallbackBookmarkResults: SuggestionItem[] = [];
 
-      if (isExtension) {
-        const shouldUseFallback = shouldUseFallbackPool(query);
-        [historyResults, bookmarkResults, fallbackHistoryResults, fallbackBookmarkResults] = await Promise.all([
-          getChromeHistory(query),
-          getChromeBookmarks(query),
-          shouldUseFallback ? getRecentHistoryPool() : Promise.resolve([]),
-          shouldUseFallback ? getRecentBookmarkPool() : Promise.resolve([])
-        ]);
+        if (isExtension) {
+          const shouldUseFallback = shouldUseFallbackPool(query);
+          [indexedHostnameResults, historyResults, bookmarkResults, fallbackHistoryResults, fallbackBookmarkResults] = await Promise.all([
+            getIndexedHostnameSuggestions(query),
+            getChromeHistory(query),
+            getChromeBookmarks(query),
+            shouldUseFallback ? getRecentHistoryPool() : Promise.resolve([]),
+            shouldUseFallback ? getRecentBookmarkPool() : Promise.resolve([])
+          ]);
       }
 
       if (currentRequestId !== requestIdRef.current) {
@@ -331,6 +370,7 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       }
 
       const candidatePool = [
+        ...indexedHostnameResults,
         ...historyResults,
         ...bookmarkResults,
         ...fallbackHistoryResults,
@@ -351,7 +391,7 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       setSuggestions([]);
       setShowSuggestions(false);
     }
-  }, [isExtension, getChromeHistory, getChromeBookmarks, getRecentHistoryPool, getRecentBookmarkPool, commitSuggestions]);
+  }, [isExtension, getIndexedHostnameSuggestions, getChromeHistory, getChromeBookmarks, getRecentHistoryPool, getRecentBookmarkPool, commitSuggestions]);
 
   const debouncedGetSuggestions = useCallback((query: string) => {
     if (debounceRef.current) {
