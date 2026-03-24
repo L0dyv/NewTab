@@ -1,13 +1,7 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, Check, X, MoreHorizontal, GripVertical } from "lucide-react";
+import { Plus, Check, X, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,7 +22,6 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
   SortableContext,
   sortableKeyboardCoordinates,
   horizontalListSortingStrategy,
@@ -37,6 +30,17 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useI18n } from "@/hooks/useI18n";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  deleteQuickLinkGroup,
+  renameQuickLinkGroup,
+  reorderQuickLinkGroups,
+} from "@/lib/quickLinkGroups";
 
 interface GroupTabsProps {
   groups: QuickLinkGroup[];
@@ -112,31 +116,28 @@ function SortableGroupTab({
       <div {...attributes} {...listeners} className="cursor-grab text-muted-foreground hover:text-foreground flex-shrink-0 touch-none">
         <GripVertical className="h-3 w-3" />
       </div>
-      <button
-        type="button"
-        className={tabClass(isActive)}
-        onClick={onTabClick}
-      >
-        {group.name}({linkCount})
-      </button>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-5 w-5 p-0 ml-0.5 text-muted-foreground hover:text-foreground">
-            <MoreHorizontal className="h-3 w-3" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[120px]">
-          <DropdownMenuItem onClick={onStartRename}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <button
+            type="button"
+            className={tabClass(isActive)}
+            onClick={onTabClick}
+          >
+            {group.name}({linkCount})
+          </button>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="min-w-[120px]">
+          <ContextMenuItem onSelect={onStartRename}>
             {t('quickLinks.renameGroup')}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onDeleteRequest}
+          </ContextMenuItem>
+          <ContextMenuItem
+            onSelect={onDeleteRequest}
             className="text-destructive focus:text-destructive"
           >
             {t('quickLinks.deleteGroup')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
     </div>
   );
 }
@@ -199,19 +200,15 @@ export default function GroupTabs({
   const renameGroup = () => {
     const name = renamingName.trim();
     if (!name || !renamingId) return;
-    onGroupsChange(groups.map(g =>
-      g.id === renamingId ? { ...g, name } : g
-    ));
+    onGroupsChange(renameQuickLinkGroup(groups, renamingId, name));
     setRenamingId(null);
     setRenamingName("");
   };
 
   const deleteGroup = (groupId: string) => {
-    // Move links back to ungrouped
-    onLinksChange(links.map(l =>
-      l.groupId === groupId ? { ...l, groupId: undefined } : l
-    ));
-    onGroupsChange(groups.filter(g => g.id !== groupId));
+    const nextState = deleteQuickLinkGroup(groups, links, groupId);
+    onLinksChange(nextState.links);
+    onGroupsChange(nextState.groups);
     if (activeGroupFilter === groupId) {
       onActiveGroupFilterChange('all');
     }
@@ -221,14 +218,7 @@ export default function GroupTabs({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (active.id !== over?.id) {
-      const oldIndex = sortedGroups.findIndex(g => g.id === active.id);
-      const newIndex = sortedGroups.findIndex(g => g.id === over?.id);
-      const reordered = arrayMove(sortedGroups, oldIndex, newIndex);
-      // Recompute order values
-      onGroupsChange(groups.map(g => {
-        const idx = reordered.findIndex(rg => rg.id === g.id);
-        return idx >= 0 ? { ...g, order: idx } : g;
-      }));
+      onGroupsChange(reorderQuickLinkGroups(groups, String(active.id), over ? String(over.id) : null));
     }
   };
 

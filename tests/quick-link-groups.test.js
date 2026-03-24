@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 import {
   updateQuickLinkDraft,
   applyQuickLinkEdit,
+  renameQuickLinkGroup,
+  deleteQuickLinkGroup,
+  reorderQuickLinkGroups,
 } from "../src/lib/quickLinkGroups.js";
 
 const links = [
@@ -26,6 +29,24 @@ const initialDraft = {
   url: "https://beta.example.com",
   groupId: "group-b",
 };
+
+const groups = [
+  {
+    id: "group-a",
+    name: "Alpha Group",
+    order: 0,
+  },
+  {
+    id: "group-b",
+    name: "Beta Group",
+    order: 1,
+  },
+  {
+    id: "group-c",
+    name: "Gamma Group",
+    order: 2,
+  },
+];
 
 assert.deepEqual(
   updateQuickLinkDraft(initialDraft, {
@@ -54,6 +75,60 @@ assert.deepEqual(
       groupId: "group-a",
     },
   ]
+);
+
+assert.deepEqual(
+  renameQuickLinkGroup(groups, "group-b", "Docs"),
+  [
+    groups[0],
+    {
+      id: "group-b",
+      name: "Docs",
+      order: 1,
+    },
+    groups[2],
+  ]
+);
+
+assert.deepEqual(
+  reorderQuickLinkGroups(groups, "group-c", "group-a"),
+  [
+    {
+      id: "group-c",
+      name: "Gamma Group",
+      order: 0,
+    },
+    {
+      id: "group-a",
+      name: "Alpha Group",
+      order: 1,
+    },
+    {
+      id: "group-b",
+      name: "Beta Group",
+      order: 2,
+    },
+  ]
+);
+
+assert.deepEqual(
+  deleteQuickLinkGroup(groups, links, "group-b"),
+  {
+    groups: [
+      groups[0],
+      groups[2],
+    ],
+    links: [
+      links[0],
+      {
+        id: "link-2",
+        name: "Beta",
+        url: "https://beta.example.com",
+        enabled: true,
+        groupId: undefined,
+      },
+    ],
+  }
 );
 
 console.log("[PASS] quick link groups tests");
