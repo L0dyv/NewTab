@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  getSearchQueryVariants,
   getInlineCompletionCandidate,
   rankSuggestions,
   shouldUseFallbackPool,
@@ -68,9 +69,30 @@ const bilibiliSuggestion = {
   lastVisitTime: now - 86400000 * 5,
 };
 
+const almaReleaseSuggestion = {
+  id: "history-alma-releases",
+  title: "alma-releases",
+  url: "https://github.com/AlmaLinux/alma-releases/releases",
+  type: "history",
+  visitCount: 18,
+  typedCount: 2,
+  lastVisitTime: now - 86400000,
+};
+
 assert.equal(shouldUseFallbackPool("ok"), true);
 assert.equal(shouldUseFallbackPool("web."), true);
-assert.equal(shouldUseFallbackPool("search query"), false);
+assert.equal(shouldUseFallbackPool("searchquery"), false);
+assert.equal(shouldUseFallbackPool("search query"), true);
+assert.equal(shouldUseFallbackPool("alma release"), true);
+
+assert.deepEqual(getSearchQueryVariants("alma release"), [
+  "alma release",
+  "alma-release",
+  "almarelease",
+]);
+assert.deepEqual(getSearchQueryVariants("v."), [
+  "v.",
+]);
 
 const rankedForLabelPrefix = rankSuggestions("ok", [otherSuggestion, okjikeSuggestion]);
 assert.equal(rankedForLabelPrefix[0]?.url, okjikeSuggestion.url);
@@ -83,6 +105,9 @@ assert.equal(rankedForV2HostPrefix[0]?.url, v2exSuggestion.url);
 
 const rankedForBilibHostPrefix = rankSuggestions("bilib", [strongButFuzzyBilibSuggestion, bilibiliSuggestion]);
 assert.equal(rankedForBilibHostPrefix[0]?.url, bilibiliSuggestion.url);
+
+const rankedForLooseSeparatorMatch = rankSuggestions("alma release", [otherSuggestion, almaReleaseSuggestion]);
+assert.equal(rankedForLooseSeparatorMatch[0]?.url, almaReleaseSuggestion.url);
 
 assert.deepEqual(getInlineCompletionCandidate("web.", okjikeSuggestion.url), {
   previewText: "web.okjike.com",

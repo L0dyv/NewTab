@@ -127,6 +127,37 @@ const escapeOmnibox = (text = "") => String(text)
 const normalizeQuery = (text = "") => text.trim().toLowerCase();
 
 const normalizeUrlForMatch = (url = "") => url.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
+const TOKEN_SEPARATOR_PATTERN = /[^\p{L}\p{N}]+/gu;
+const WHITESPACE_PATTERN = /\s+/g;
+
+const normalizeLooseText = (text = "") =>
+    normalizeQuery(String(text || "").replace(TOKEN_SEPARATOR_PATTERN, " "))
+        .replace(WHITESPACE_PATTERN, " ")
+        .trim();
+
+const getSearchQueryVariants = (query) => {
+    const normalized = normalizeQuery(String(query || ""));
+    if (!normalized) return [];
+
+    const variants = [];
+    const addVariant = (value) => {
+        const normalizedValue = normalizeQuery(String(value || ""));
+        if (!normalizedValue || variants.includes(normalizedValue)) return;
+        variants.push(normalizedValue);
+    };
+
+    addVariant(normalized);
+    if (normalized.includes(" ")) {
+        const loose = normalizeLooseText(normalized);
+        if (loose !== normalized) {
+            addVariant(loose);
+        }
+        addVariant(loose.replace(WHITESPACE_PATTERN, "-"));
+        addVariant(loose.replace(WHITESPACE_PATTERN, ""));
+    }
+
+    return variants;
+};
 
 const HOSTNAME_INDEX_STORAGE_KEY = "hostnameAutocompleteIndexV1";
 const HOSTNAME_INDEX_MAX_PREFIX_LENGTH = 8;
@@ -706,16 +737,33 @@ const matchCandidate = (normalized, candidate) => {
     const title = (candidate.title || "").toLowerCase();
     const rawUrl = (candidate.url || "").toLowerCase();
     const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
+    const shouldUseLooseMatching = normalized.includes(" ");
+    const looseQuery = shouldUseLooseMatching ? normalizeLooseText(normalized) : "";
+    const looseTitle = shouldUseLooseMatching ? normalizeLooseText(candidate.title || "") : "";
+    const looseRawUrl = shouldUseLooseMatching ? normalizeLooseText(candidate.url || "") : "";
+    const looseNormalizedUrl = shouldUseLooseMatching ? normalizeLooseText(normalizedUrl) : "";
     return Boolean(getHostnamePrefixMatch(normalized, candidate.url || ""))
         || title.includes(normalized)
         || rawUrl.includes(normalized)
-        || normalizedUrl.includes(normalized);
+        || normalizedUrl.includes(normalized)
+        || (
+            shouldUseLooseMatching
+            && (
+                looseTitle.includes(looseQuery)
+                || looseRawUrl.includes(looseQuery)
+                || looseNormalizedUrl.includes(looseQuery)
+            )
+        );
 };
 
 const scoreCandidate = (normalized, candidate) => {
     const title = (candidate.title || "").toLowerCase();
     const rawUrl = (candidate.url || "").toLowerCase();
     const normalizedUrl = normalizeUrlForMatch(candidate.url || "");
+    const shouldUseLooseMatching = normalized.includes(" ");
+    const looseQuery = shouldUseLooseMatching ? normalizeLooseText(normalized) : "";
+    const looseTitle = shouldUseLooseMatching ? normalizeLooseText(candidate.title || "") : "";
+    const looseNormalizedUrl = shouldUseLooseMatching ? normalizeLooseText(normalizedUrl) : "";
     const hostnameMatch = getHostnamePrefixMatch(normalized, candidate.url || "");
 
     let score = 0;
@@ -724,9 +772,13 @@ const scoreCandidate = (normalized, candidate) => {
     else if (hostnameMatch?.matchType === "label-prefix") score += 115;
     else if (rawUrl.startsWith(normalized)) score += 110;
     else if (normalizedUrl.includes(normalized)) score += 45;
+    else if (shouldUseLooseMatching && looseNormalizedUrl.startsWith(looseQuery)) score += 60;
+    else if (shouldUseLooseMatching && looseNormalizedUrl.includes(looseQuery)) score += 35;
 
     if (title.startsWith(normalized)) score += 80;
     else if (title.includes(normalized)) score += 30;
+    else if (shouldUseLooseMatching && looseTitle.startsWith(looseQuery)) score += 65;
+    else if (shouldUseLooseMatching && looseTitle.includes(looseQuery)) score += 25;
 
     if (candidate.type === "bookmark") score += 35;
 
@@ -786,24 +838,56 @@ const getDisplayUrl = (url) => {
     }
 };
 
+const mergeOmniboxCandidatesByUrl = (items) => {
+    const byUrl = new Map();
+
+    for (const item of items || []) {
+        if (!item?.url) continue;
+
+        const dedupeKey = item.url.toLowerCase();
+        const existing = byUrl.get(dedupeKey);
+        if (!existing) {
+            byUrl.set(dedupeKey, item);
+            continue;
+        }
+
+        byUrl.set(dedupeKey, {
+            ...existing,
+            title: existing.title || item.title || item.url,
+            type: existing.type === "bookmark" || item.type === "bookmark" ? "bookmark" : "history",
+            visitCount: Math.max(existing.visitCount || 0, item.visitCount || 0),
+            typedCount: Math.max(existing.typedCount || 0, item.typedCount || 0),
+            lastVisitTime: Math.max(existing.lastVisitTime || 0, item.lastVisitTime || 0),
+        });
+    }
+
+    return [...byUrl.values()];
+};
+
 const getOmniboxHistoryCandidates = async (query) => {
     try {
-        const results = await chrome.history.search({
-            text: query,
-            startTime: 0,
-            maxResults: OMNIBOX_MAX_HISTORY,
-        });
+        const queries = getSearchQueryVariants(query);
+        const resultGroups = await Promise.all(
+            queries.map((variant) => chrome.history.search({
+                text: variant,
+                startTime: 0,
+                maxResults: OMNIBOX_MAX_HISTORY,
+            }))
+        );
 
-        return results
-            .filter((item) => Boolean(item.url))
-            .map((item) => ({
-                title: item.title || item.url || "",
-                url: item.url || "",
-                type: "history",
-                visitCount: item.visitCount,
-                typedCount: item.typedCount,
-                lastVisitTime: item.lastVisitTime,
-            }));
+        return mergeOmniboxCandidatesByUrl(
+            resultGroups
+                .flat()
+                .filter((item) => Boolean(item.url))
+                .map((item) => ({
+                    title: item.title || item.url || "",
+                    url: item.url || "",
+                    type: "history",
+                    visitCount: item.visitCount,
+                    typedCount: item.typedCount,
+                    lastVisitTime: item.lastVisitTime,
+                }))
+        ).slice(0, OMNIBOX_MAX_HISTORY);
     } catch {
         return [];
     }
@@ -811,15 +895,20 @@ const getOmniboxHistoryCandidates = async (query) => {
 
 const getOmniboxBookmarkCandidates = async (query) => {
     try {
-        const results = await chrome.bookmarks.search(query);
-        return results
-            .filter((item) => Boolean(item.url))
-            .slice(0, OMNIBOX_MAX_BOOKMARKS)
-            .map((item) => ({
-                title: item.title || item.url || "",
-                url: item.url || "",
-                type: "bookmark",
-            }));
+        const queries = getSearchQueryVariants(query);
+        const resultGroups = await Promise.all(
+            queries.map((variant) => chrome.bookmarks.search(variant))
+        );
+        return mergeOmniboxCandidatesByUrl(
+            resultGroups
+                .flat()
+                .filter((item) => Boolean(item.url))
+                .map((item) => ({
+                    title: item.title || item.url || "",
+                    url: item.url || "",
+                    type: "bookmark",
+                }))
+        ).slice(0, OMNIBOX_MAX_BOOKMARKS);
     } catch {
         return [];
     }

@@ -14,11 +14,42 @@
 const PROTOCOL_PREFIX = /^https?:\/\//i;
 const WWW_PREFIX = /^www\./i;
 const MAX_SUGGESTIONS = 10;
+const TOKEN_SEPARATOR_PATTERN = /[^\p{L}\p{N}]+/gu;
+const WHITESPACE_PATTERN = /\s+/g;
 
 export const normalizeQuery = (text) => text.trim().toLowerCase();
 
 export const normalizeUrlForMatch = (url) =>
   url.toLowerCase().replace(PROTOCOL_PREFIX, "").replace(WWW_PREFIX, "");
+
+export const normalizeLooseText = (text) =>
+  normalizeQuery(String(text || "").replace(TOKEN_SEPARATOR_PATTERN, " "))
+    .replace(WHITESPACE_PATTERN, " ")
+    .trim();
+
+export const getSearchQueryVariants = (query) => {
+  const normalizedQuery = normalizeQuery(String(query || ""));
+  if (!normalizedQuery) return [];
+
+  const variants = [];
+  const addVariant = (value) => {
+    const normalizedValue = normalizeQuery(String(value || ""));
+    if (!normalizedValue || variants.includes(normalizedValue)) return;
+    variants.push(normalizedValue);
+  };
+
+  addVariant(normalizedQuery);
+  if (normalizedQuery.includes(" ")) {
+    const looseQuery = normalizeLooseText(normalizedQuery);
+    if (looseQuery !== normalizedQuery) {
+      addVariant(looseQuery);
+    }
+    addVariant(looseQuery.replace(WHITESPACE_PATTERN, "-"));
+    addVariant(looseQuery.replace(WHITESPACE_PATTERN, ""));
+  }
+
+  return variants;
+};
 
 export const getInlineCompletionText = (url) => {
   const normalizedUrl = normalizeUrlForMatch(url);
@@ -61,8 +92,9 @@ const getHostnameMatchPriority = (normalizedQuery, url) => {
 export const shouldUseFallbackPool = (query) => {
   const normalizedQuery = normalizeQuery(query);
   if (!normalizedQuery) return false;
-  if (normalizedQuery.includes(" ")) return false;
-  return normalizedQuery.length <= 3 || normalizedQuery.includes(".");
+  return normalizedQuery.length <= 3
+    || normalizedQuery.includes(".")
+    || normalizedQuery.includes(" ");
 };
 
 export const getInlineCompletionCandidate = (query, url) => {
@@ -96,12 +128,25 @@ export const matchesSuggestion = (normalizedQuery, item) => {
   const title = item.title.toLowerCase();
   const rawUrl = item.url.toLowerCase();
   const normalizedUrl = normalizeUrlForMatch(item.url);
+  const shouldUseLooseMatching = normalizedQuery.includes(" ");
+  const looseQuery = shouldUseLooseMatching ? normalizeLooseText(normalizedQuery) : "";
+  const looseTitle = shouldUseLooseMatching ? normalizeLooseText(item.title) : "";
+  const looseRawUrl = shouldUseLooseMatching ? normalizeLooseText(item.url) : "";
+  const looseNormalizedUrl = shouldUseLooseMatching ? normalizeLooseText(normalizedUrl) : "";
 
   return (
     hasHostnamePrefixMatch(normalizedQuery, item.url) ||
     title.includes(normalizedQuery) ||
     rawUrl.includes(normalizedQuery) ||
-    normalizedUrl.includes(normalizedQuery)
+    normalizedUrl.includes(normalizedQuery) ||
+    (
+      shouldUseLooseMatching &&
+      (
+        looseTitle.includes(looseQuery) ||
+        looseRawUrl.includes(looseQuery) ||
+        looseNormalizedUrl.includes(looseQuery)
+      )
+    )
   );
 };
 
@@ -120,6 +165,10 @@ export const scoreSuggestion = (normalizedQuery, item) => {
   const title = item.title.toLowerCase();
   const rawUrl = item.url.toLowerCase();
   const normalizedUrl = normalizeUrlForMatch(item.url);
+  const shouldUseLooseMatching = normalizedQuery.includes(" ");
+  const looseQuery = shouldUseLooseMatching ? normalizeLooseText(normalizedQuery) : "";
+  const looseTitle = shouldUseLooseMatching ? normalizeLooseText(item.title) : "";
+  const looseNormalizedUrl = shouldUseLooseMatching ? normalizeLooseText(normalizedUrl) : "";
   const hostnameMatch = getHostnamePrefixMatch(normalizedQuery, item.url);
 
   let score = 0;
@@ -128,9 +177,13 @@ export const scoreSuggestion = (normalizedQuery, item) => {
   else if (hostnameMatch?.matchType === "label-prefix") score += 115;
   else if (rawUrl.startsWith(normalizedQuery)) score += 110;
   else if (normalizedUrl.includes(normalizedQuery)) score += 45;
+  else if (shouldUseLooseMatching && looseNormalizedUrl.startsWith(looseQuery)) score += 60;
+  else if (shouldUseLooseMatching && looseNormalizedUrl.includes(looseQuery)) score += 35;
 
   if (title.startsWith(normalizedQuery)) score += 80;
   else if (title.includes(normalizedQuery)) score += 30;
+  else if (shouldUseLooseMatching && looseTitle.startsWith(looseQuery)) score += 65;
+  else if (shouldUseLooseMatching && looseTitle.includes(looseQuery)) score += 25;
 
   if (item.type === "bookmark") score += 35;
 

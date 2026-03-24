@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { t } from "@/lib/i18n";
 import {
+  getSearchQueryVariants,
   getInlineCompletionCandidate,
   getInlineCompletionText,
   normalizeQuery,
@@ -105,6 +106,33 @@ const setQueryCache = (cache: Map<string, SuggestionItem[]>, key: string, value:
   }
 };
 
+const mergeSuggestionItemsByUrl = (items: SuggestionItem[]): SuggestionItem[] => {
+  const byUrl = new Map<string, SuggestionItem>();
+
+  for (const item of items) {
+    if (!item?.url) continue;
+
+    const dedupeKey = item.url.toLowerCase();
+    const existing = byUrl.get(dedupeKey);
+    if (!existing) {
+      byUrl.set(dedupeKey, item);
+      continue;
+    }
+
+    byUrl.set(dedupeKey, {
+      ...existing,
+      title: existing.title || item.title || item.url,
+      favicon: existing.favicon || item.favicon,
+      type: existing.type === 'bookmark' || item.type === 'bookmark' ? 'bookmark' : 'history',
+      visitCount: Math.max(existing.visitCount || 0, item.visitCount || 0),
+      typedCount: Math.max(existing.typedCount || 0, item.typedCount || 0),
+      lastVisitTime: Math.max(existing.lastVisitTime || 0, item.lastVisitTime || 0)
+    });
+  }
+
+  return [...byUrl.values()];
+};
+
 const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: AutoCompleteProps) => {
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -136,15 +164,21 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     }
 
     try {
-      const results = await chrome.history.search({
-        text: query,
-        startTime: 0,
-        maxResults: MAX_HISTORY_RESULTS
-      });
+      const queries = getSearchQueryVariants(query);
+      const resultGroups = await Promise.all(
+        queries.map((variant) => chrome.history.search({
+          text: variant,
+          startTime: 0,
+          maxResults: MAX_HISTORY_RESULTS
+        }))
+      );
 
-      return results
-        .map(mapHistoryItem)
-        .filter((item): item is SuggestionItem => item !== null);
+      return mergeSuggestionItemsByUrl(
+        resultGroups
+          .flat()
+          .map(mapHistoryItem)
+          .filter((item): item is SuggestionItem => item !== null)
+      ).slice(0, MAX_HISTORY_RESULTS);
     } catch (error) {
       console.error('Failed to get Chrome history:', error);
       return [];
@@ -159,11 +193,16 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
     }
 
     try {
-      const results = await chrome.bookmarks.search(query);
-      return results
-        .map(mapBookmarkItem)
-        .filter((item): item is SuggestionItem => item !== null)
-        .slice(0, MAX_BOOKMARK_RESULTS);
+      const queries = getSearchQueryVariants(query);
+      const resultGroups = await Promise.all(
+        queries.map((variant) => chrome.bookmarks.search(variant))
+      );
+      return mergeSuggestionItemsByUrl(
+        resultGroups
+          .flat()
+          .map(mapBookmarkItem)
+          .filter((item): item is SuggestionItem => item !== null)
+      ).slice(0, MAX_BOOKMARK_RESULTS);
     } catch (error) {
       console.error('Failed to get Chrome bookmarks:', error);
       return [];
