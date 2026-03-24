@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NewTab",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "A smart browser start page with auto-completion based on browser history",
   "permissions": [
     "history",

@@ -42,8 +42,19 @@ function SortableHomepageGroupTab({
   tabClass: (active: boolean) => string;
   onTabChange: (tab: string) => void;
 }) {
-  const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: group.id });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const {
+    setNodeRef,
+    attributes,
+    listeners,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: group.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    willChange: isDragging ? "transform" : undefined,
+  };
 
   return (
     <button
@@ -70,6 +81,7 @@ export default function HomepageGroupFilter({
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
+  const maskStateRef = useRef({ left: false, right: false });
   const [showLeft, setShowLeft] = useState(false);
   const [showRight, setShowRight] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -82,8 +94,18 @@ export default function HomepageGroupFilter({
   const updateMasks = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    setShowLeft(el.scrollLeft > 2);
-    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+    const nextLeft = el.scrollLeft > 2;
+    const nextRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+
+    if (maskStateRef.current.left !== nextLeft) {
+      maskStateRef.current.left = nextLeft;
+      setShowLeft(nextLeft);
+    }
+
+    if (maskStateRef.current.right !== nextRight) {
+      maskStateRef.current.right = nextRight;
+      setShowRight(nextRight);
+    }
   }, []);
 
   useEffect(() => {
@@ -111,7 +133,7 @@ export default function HomepageGroupFilter({
   const tabClass = (active: boolean) =>
     cn(
       "inline-flex items-center px-3 py-1 text-xs font-medium rounded-full",
-      "transition-all duration-200 cursor-pointer select-none whitespace-nowrap",
+      "transition-colors duration-200 cursor-pointer select-none whitespace-nowrap",
       "border-0 outline-none focus:outline-none",
       active
         ? "bg-accent text-foreground shadow-sm"
