@@ -6,6 +6,7 @@ import {
   renameQuickLinkGroup,
   deleteQuickLinkGroup,
   reorderQuickLinkGroups,
+  sortQuickLinkGroups,
 } from "../src/lib/quickLinkGroups.js";
 
 const links = [
@@ -129,6 +130,40 @@ assert.deepEqual(
       },
     ],
   }
+);
+
+assert.deepEqual(
+  sortQuickLinkGroups([
+    groups[2],
+    groups[0],
+    groups[1],
+  ]),
+  [
+    groups[0],
+    groups[1],
+    groups[2],
+  ]
+);
+
+assert.deepEqual(
+  groups,
+  [
+    {
+      id: "group-a",
+      name: "Alpha Group",
+      order: 0,
+    },
+    {
+      id: "group-b",
+      name: "Beta Group",
+      order: 1,
+    },
+    {
+      id: "group-c",
+      name: "Gamma Group",
+      order: 2,
+    },
+  ]
 );
 
 console.log("[PASS] quick link groups tests");

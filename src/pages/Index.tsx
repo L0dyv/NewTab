@@ -7,6 +7,7 @@ import SettingsModal from "@/components/SettingsModal";
 import UnifiedSettings from "@/components/UnifiedSettings";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, setStoredValue, migrateLocalStorageToSync } from "@/lib/storage";
+import { sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
@@ -366,7 +367,7 @@ const Index = () => {
   // 将链接按分组组织
   const groupedLinks = useMemo(() => {
     const enabledLinks = quickLinks.filter(l => l.enabled === true);
-    const sortedGroups = [...quickLinkGroups].sort((a, b) => a.order - b.order);
+    const sortedGroups = sortQuickLinkGroups(quickLinkGroups);
     const ungrouped = enabledLinks.filter(l => !l.groupId);
     const result: { group: QuickLinkGroup | null; links: QuickLink[] }[] = [];
     if (ungrouped.length > 0) result.push({ group: null, links: ungrouped });
@@ -551,6 +552,7 @@ const Index = () => {
           groups={quickLinkGroups}
           activeTab={activeHomeTab}
           onTabChange={setActiveHomeTab}
+          onGroupsChange={setQuickLinkGroups}
           onAddGroup={(name) => {
             const maxOrder = quickLinkGroups.reduce((max, g) => Math.max(max, g.order), -1);
             const newGroup = { id: `group-${Date.now()}`, name, order: maxOrder + 1 };

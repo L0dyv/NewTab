@@ -29,12 +29,16 @@ export function renameQuickLinkGroup(groups, groupId, name) {
   );
 }
 
+export function sortQuickLinkGroups(groups) {
+  return [...groups].sort((a, b) => a.order - b.order);
+}
+
 export function reorderQuickLinkGroups(groups, activeId, overId) {
   if (!overId || activeId === overId) {
     return groups;
   }
 
-  const sortedGroups = [...groups].sort((a, b) => a.order - b.order);
+  const sortedGroups = sortQuickLinkGroups(groups);
   const oldIndex = sortedGroups.findIndex((group) => group.id === activeId);
   const newIndex = sortedGroups.findIndex((group) => group.id === overId);
 

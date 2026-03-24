@@ -5,12 +5,59 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/hooks/useI18n";
 import type { QuickLinkGroup } from "@/lib/types";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { reorderQuickLinkGroups, sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 
 interface HomepageGroupFilterProps {
   groups: QuickLinkGroup[];
   activeTab: string; // 'all' | group.id
   onTabChange: (tab: string) => void;
   onAddGroup?: (name: string) => void;
+  onGroupsChange?: (groups: QuickLinkGroup[]) => void;
+}
+
+function SortableHomepageGroupTab({
+  group,
+  isActive,
+  tabClass,
+  onTabChange,
+}: {
+  group: QuickLinkGroup;
+  isActive: boolean;
+  tabClass: (active: boolean) => string;
+  onTabChange: (tab: string) => void;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: group.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      type="button"
+      className={tabClass(isActive)}
+      onClick={() => onTabChange(group.id)}
+      {...attributes}
+      {...listeners}
+    >
+      {group.name}
+    </button>
+  );
 }
 
 export default function HomepageGroupFilter({
@@ -18,6 +65,7 @@ export default function HomepageGroupFilter({
   activeTab,
   onTabChange,
   onAddGroup,
+  onGroupsChange,
 }: HomepageGroupFilterProps) {
   const { t } = useI18n();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -26,6 +74,10 @@ export default function HomepageGroupFilter({
   const [showRight, setShowRight] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const updateMasks = useCallback(() => {
     const el = scrollRef.current;
@@ -54,7 +106,7 @@ export default function HomepageGroupFilter({
 
   if (groups.length === 0 && !onAddGroup) return null;
 
-  const sortedGroups = [...groups].sort((a, b) => a.order - b.order);
+  const sortedGroups = sortQuickLinkGroups(groups);
 
   const tabClass = (active: boolean) =>
     cn(
@@ -72,6 +124,15 @@ export default function HomepageGroupFilter({
     onAddGroup(name);
     setNewGroupName("");
     setIsAdding(false);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    if (!onGroupsChange) return;
+
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      onGroupsChange(reorderQuickLinkGroups(groups, String(active.id), over ? String(over.id) : null));
+    }
   };
 
   return (
@@ -94,16 +155,25 @@ export default function HomepageGroupFilter({
             >
               {t("quickLinks.allGroups")}
             </button>
-            {sortedGroups.map((group) => (
-              <button
-                key={group.id}
-                type="button"
-                className={tabClass(activeTab === group.id)}
-                onClick={() => onTabChange(group.id)}
-              >
-                {group.name}
-              </button>
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={sortedGroups.map((group) => group.id)} strategy={horizontalListSortingStrategy}>
+                <div className="flex items-center gap-1.5">
+                  {sortedGroups.map((group) => (
+                    <SortableHomepageGroupTab
+                      key={group.id}
+                      group={group}
+                      isActive={activeTab === group.id}
+                      tabClass={tabClass}
+                      onTabChange={onTabChange}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </>
         )}
 
