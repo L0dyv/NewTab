@@ -10,7 +10,7 @@
     "build:ext": "node scripts/build-extension.js",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node tests/google-to-kagi.test.js && node tests/autocomplete-matching.test.js && node tests/hostname-autocomplete-index.test.js",
+    "test": "node tests/google-to-kagi.test.js && node tests/autocomplete-matching.test.js && node tests/hostname-autocomplete-index.test.js && node tests/quick-link-groups.test.js",
     "sync-version": "node -e \"const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('./package.json','utf8'));const m=JSON.parse(fs.readFileSync('./manifest.json','utf8'));const cmp=(a,b)=>{const pa=a.split('.').map(Number),pb=b.split('.').map(Number);for(let i=0;i<3;i++){if(pa[i]>pb[i])return 1;if(pa[i]<pb[i])return -1;}return 0;};const v=cmp(pkg.version,m.version)>=0?pkg.version:m.version;pkg.version=v;m.version=v;fs.writeFileSync('./package.json',JSON.stringify(pkg,null,2)+'\\n');fs.writeFileSync('./manifest.json',JSON.stringify(m,null,2)+'\\n');console.log('Synced version to '+v)\"",
     "version": "npm run sync-version && git add package.json manifest.json",
     "package:zip": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -Command \"New-Item -ItemType Directory -Force -Path release | Out-Null; Compress-Archive -Path release\\\\extensions\\\\* -DestinationPath release\\\\NewTab-$env:npm_package_version.zip -Force\""

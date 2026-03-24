@@ -34,6 +34,7 @@ import { useI18n } from "@/hooks/useI18n";
 import { isLocalHostname } from "@/lib/url";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 import GroupTabs from "@/components/GroupTabs";
+import { applyQuickLinkEdit, updateQuickLinkDraft } from "@/lib/quickLinkGroups";
 
 interface QuickLinksConfigProps {
   links: QuickLink[];
@@ -80,7 +81,7 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
   const [newLink, setNewLink] = useState({ name: "", url: "", groupId: "" });
   const [isLoading, setIsLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingLink, setEditingLink] = useState({ name: "", url: "" });
+  const [editingLink, setEditingLink] = useState({ name: "", url: "", groupId: "" });
   const [isEditLoading, setIsEditLoading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [skipDeleteConfirm, setSkipDeleteConfirm] = useState(false);
@@ -190,12 +191,12 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
 
   const startEditing = (link: QuickLink) => {
     setEditingId(link.id);
-    setEditingLink({ name: link.name, url: link.url });
+    setEditingLink({ name: link.name, url: link.url, groupId: link.groupId ?? "" });
   };
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditingLink({ name: "", url: "" });
+    setEditingLink({ name: "", url: "", groupId: "" });
   };
 
   const saveEditing = async () => {
@@ -210,14 +211,14 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
           linkName = await fetchPageTitle(normalizedUrl);
         }
 
-        const updatedLinks = links.map(link =>
-          link.id === editingId
-            ? { ...link, name: linkName, url: normalizedUrl }
-            : link
-        );
+        const updatedLinks = applyQuickLinkEdit(links, editingId, {
+          ...editingLink,
+          name: linkName,
+          url: normalizedUrl,
+        });
         onLinksChange(updatedLinks);
         setEditingId(null);
-        setEditingLink({ name: "", url: "" });
+        setEditingLink({ name: "", url: "", groupId: "" });
       } finally {
         setIsEditLoading(false);
       }
@@ -278,16 +279,13 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
                     editingLink={editingLink}
                     isEditLoading={isEditLoading}
                     skipDeleteConfirm={skipDeleteConfirm}
-                    onEditingLinkChange={setEditingLink}
+                    onEditingLinkChange={(value) => setEditingLink((current) => updateQuickLinkDraft(current, value))}
                     onStartEditing={startEditing}
                     onSaveEditing={saveEditing}
                     onCancelEditing={cancelEditing}
                     onRemoveLink={removeLink}
                     onToggleEnabled={toggleEnabled}
                     onConfirmDelete={setConfirmDeleteId}
-                    onGroupChange={(id, groupId) => {
-                      onLinksChange(links.map(l => l.id === id ? { ...l, groupId } : l));
-                    }}
                   />
                 ))}
               </div>

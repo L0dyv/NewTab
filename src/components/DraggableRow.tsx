@@ -11,17 +11,16 @@ interface DraggableRowProps {
     link: QuickLink;
     groups: QuickLinkGroup[];
     isEditing: boolean;
-    editingLink: { name: string; url: string };
+    editingLink: { name: string; url: string; groupId: string };
     isEditLoading: boolean;
     skipDeleteConfirm: boolean;
-    onEditingLinkChange: (value: { name: string; url: string }) => void;
+    onEditingLinkChange: (value: { name: string; url: string; groupId: string }) => void;
     onStartEditing: (link: QuickLink) => void;
     onSaveEditing: () => void;
     onCancelEditing: () => void;
     onRemoveLink: (id: string) => void;
     onToggleEnabled: (id: string, enabled: boolean) => void;
     onConfirmDelete: (id: string) => void;
-    onGroupChange: (id: string, groupId: string | undefined) => void;
 }
 
 const DraggableRow = ({
@@ -38,7 +37,6 @@ const DraggableRow = ({
     onRemoveLink,
     onToggleEnabled,
     onConfirmDelete,
-    onGroupChange,
 }: DraggableRowProps) => {
     const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: link.id });
     const style = { transform: CSS.Transform.toString(transform), transition };
@@ -87,8 +85,8 @@ const DraggableRow = ({
                     />
                     {groups.length > 0 && (
                         <select
-                            value={link.groupId ?? ''}
-                            onChange={(e) => onGroupChange(link.id, e.target.value || undefined)}
+                            value={editingLink.groupId}
+                            onChange={(e) => onEditingLinkChange({ ...editingLink, groupId: e.target.value })}
                             disabled={isEditLoading}
                             className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
@@ -134,22 +132,6 @@ const DraggableRow = ({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium text-foreground truncate">{link.name}</span>
-                    {groups.length > 0 && (
-                        <select
-                            value={link.groupId ?? ''}
-                            onChange={(e) => {
-                                e.stopPropagation();
-                                onGroupChange(link.id, e.target.value || undefined);
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-[10px] h-5 pl-1.5 pr-4 py-0 rounded bg-muted text-muted-foreground flex-shrink-0 border-0 outline-none focus:ring-1 focus:ring-ring cursor-pointer appearance-auto"
-                        >
-                            <option value="">{t('quickLinks.ungrouped')}</option>
-                            {sortedGroups.map(g => (
-                                <option key={g.id} value={g.id}>{g.name}</option>
-                            ))}
-                        </select>
-                    )}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{link.url}</div>
             </div>
