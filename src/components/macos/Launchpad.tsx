@@ -92,6 +92,8 @@ export default function Launchpad({
   };
 
   const currentPage = pages[page] ?? [];
+  // 只有多于一个分组时才会有总览页，它是唯一装着多个区段的一页
+  const hasOverview = pages.length > 1 && (pages[0]?.length ?? 0) > 1;
 
   return (
     <div
@@ -139,7 +141,15 @@ export default function Launchpad({
             {query ? t("dock.noMatches") : t("dock.noLinks")}
           </p>
         ) : (
-          <div className="animate-launchpad-grid w-full max-w-5xl space-y-6 overflow-y-auto scrollbar-hide">
+          // 分组页按容量裁好，不会溢出，滚动条藏起来更干净；"全部"这一页不受
+          // 容量限制，装不下要滚，这时就得留着滚动条——否则又是"能滚但看不出
+          // 能滚"，和刚修过的"看不出能翻页"是同一类错误。
+          <div
+            className={cn(
+              "animate-launchpad-grid w-full max-w-5xl space-y-6 overflow-y-auto",
+              !(hasOverview && page === 0) && "scrollbar-hide"
+            )}
+          >
             {currentPage.map((section, index) => (
               <section key={`${section.group?.id ?? "__ungrouped__"}-${index}`}>
                 <div className="mb-2 flex items-center gap-3">
@@ -206,24 +216,32 @@ export default function Launchpad({
         </>
       )}
 
-      {/* 页码指示 */}
+      {/* 页码指示。首页是"全部"，用方点与后面的圆点区分开，否则它看起来只是
+          又一个分组，读不出"这一页是全部" */}
       <div className="flex flex-shrink-0 items-center justify-center gap-2 py-8">
         {pages.length > 1 &&
-          pages.map((_, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => setPage(index)}
-              aria-label={`${t("dock.page")} ${index + 1}`}
-              aria-current={index === page}
-              className={cn(
-                "h-1.5 rounded-full transition-all duration-200",
-                index === page
-                  ? "w-5 bg-foreground/70"
-                  : "w-1.5 bg-foreground/25 hover:bg-foreground/45"
-              )}
-            />
-          ))}
+          pages.map((_, index) => {
+            const isOverview = hasOverview && index === 0;
+            const active = index === page;
+            return (
+              <button
+                key={index}
+                type="button"
+                onClick={() => setPage(index)}
+                aria-label={
+                  isOverview ? t("dock.allPage") : `${t("dock.page")} ${index + 1}`
+                }
+                aria-current={active}
+                className={cn(
+                  "h-1.5 transition-all duration-200",
+                  isOverview ? "rounded-[2px]" : "rounded-full",
+                  active
+                    ? `${isOverview ? "w-4" : "w-5"} bg-foreground/70`
+                    : "w-1.5 bg-foreground/25 hover:bg-foreground/45"
+                )}
+              />
+            );
+          })}
       </div>
 
       <button

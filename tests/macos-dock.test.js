@@ -159,7 +159,7 @@ const makeLinks = (n, prefix = "x") =>
   }));
 
 {
-  // 一个分组一页，不论它有多小
+  // 首页是"全部"，其后一个分组一页，不论它有多小
   const pages = paginateLaunchpad(
     [
       { group: { id: "a", name: "A" }, links: makeLinks(3, "a") },
@@ -169,20 +169,35 @@ const makeLinks = (n, prefix = "x") =>
     { cols: 4, rows: 5 }
   );
 
-  assert.equal(pages.length, 3, "each group gets its own page");
+  assert.equal(pages.length, 4, "an overview page precedes the three group pages");
   assert.deepEqual(
     pages.map((page) => page.map((s) => s.group.id)),
-    [["a"], ["b"], ["c"]],
-    "a page never mixes two groups"
+    [["a", "b", "c"], ["a"], ["b"], ["c"]],
+    "the first page holds every group in order, then one page each"
   );
   assert.ok(
-    pages.every((page) => page.length === 1),
-    "a page holds exactly one section"
+    pages.slice(1).every((page) => page.length === 1),
+    "past the overview a page holds exactly one section"
   );
   assert.ok(
-    pages.every((page) => page[0].continued === false),
+    pages.every((page) => page.every((s) => s.continued === false)),
     "a group that fits is never marked continued"
   );
+
+  // 总览页不受单页容量限制，装不下由渲染层滚动
+  const overview = pages[0].flatMap((s) => s.links.map((l) => l.id));
+  assert.equal(overview.length, 6, "the overview carries every link");
+  assert.equal(new Set(overview).size, 6, "the overview repeats none of them");
+}
+
+{
+  // 只有一个分组时不需要总览页——它和那一组自己的页完全相同
+  const pages = paginateLaunchpad(
+    [{ group: { id: "only", name: "Only" }, links: makeLinks(3, "o") }],
+    { cols: 4, rows: 5 }
+  );
+  assert.equal(pages.length, 1, "a single group does not get a duplicate overview");
+  assert.deepEqual(pages[0].map((s) => s.group.id), ["only"], "that page is the group itself");
 }
 
 {

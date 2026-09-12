@@ -129,11 +129,19 @@ export function paginateLaunchpad(sections, layout) {
   const rows = Math.max(2, Math.floor(layout?.rows || 2));
   const capacity = Math.max(1, (rows - 1) * cols);
 
+  const filled = (sections || []).filter((s) => s.links && s.links.length > 0);
   const pages = [];
 
-  for (const section of sections || []) {
-    if (!section.links || section.links.length === 0) continue;
+  // 第一页是"全部"：按分组顺序铺开，各组之间由渲染层画分割线。它不受单页容量
+  // 限制，装不下就纵向滚动——分页在这里的含义是"换一个分组"，不该把"全部"
+  // 也切成几段。只有一个分组时这一页与该组自己那页完全相同，就不必再加。
+  if (filled.length > 1) {
+    pages.push(
+      filled.map((s) => ({ group: s.group, links: s.links, continued: false }))
+    );
+  }
 
+  for (const section of filled) {
     let remaining = section.links;
     let continued = false;
 
