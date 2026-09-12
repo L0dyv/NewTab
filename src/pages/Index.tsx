@@ -476,20 +476,14 @@ const Index = () => {
 
       {/* 主搜索区域：Dock 是 fixed 定位不占流，这里直接在视口里居中 */}
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
-        {/* 欢迎标题区域 - V0 风格 */}
-        <div className="text-center mb-12">
-          <p className="text-xs text-muted-foreground font-light mb-3 tracking-wider">
-            {new Date().toLocaleDateString(locale === 'zh-CN' ? "zh-CN" : "en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-          </p>
-          <h1 className="text-5xl md:text-6xl font-light text-foreground tracking-tight mb-2">
-            {t('index.welcome')}
-          </h1>
-          <p className="text-sm text-muted-foreground">{t('index.whatToDo')}</p>
-        </div>
+        {/* 日期：搜索栏上方唯一的文字，当作一个轻量的提示行 */}
+        <p className="mb-6 text-center text-xs font-light tracking-wider text-muted-foreground">
+          {new Date().toLocaleDateString(locale === 'zh-CN' ? "zh-CN" : "en-US", {
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          })}
+        </p>
 
         {/* V0 风格搜索栏。末尾不留下边距，否则会被算进居中高度，视觉中心上移 */}
         <div className="w-full">

@@ -23,8 +23,6 @@ const messages: Record<Locale, Record<string, string>> = {
         'common.AI': 'AI',
 
         // Index 页面
-        'index.welcome': '欢迎回来',
-        'index.whatToDo': '你想要做什么？',
         'index.placeholder': '输入网址或搜索...',
         'index.kagiPlaceholder': '向 Kagi Assistant 提问...',
         'index.ask': '提问',
@@ -216,8 +214,6 @@ const messages: Record<Locale, Record<string, string>> = {
         'common.AI': 'AI',
 
         // Index page
-        'index.welcome': 'Welcome back',
-        'index.whatToDo': 'What would you like to do?',
         'index.placeholder': 'Enter URL or search...',
         'index.kagiPlaceholder': 'Ask Kagi Assistant...',
         'index.ask': 'Ask',
