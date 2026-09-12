@@ -19,7 +19,10 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      // 遮罩只能很轻地压一下。压到 30% 黑就把整页变成一块均匀中灰，面板再
+      // 半透明地叠上去，背后已经没有任何东西可透了，玻璃也就无从谈起——
+      // 它只会呈现为一块浑浊的灰。模糊交给面板自己做，这里不做第二遍。
+      "fixed inset-0 z-50 bg-black/[0.07] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}

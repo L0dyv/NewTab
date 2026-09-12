@@ -83,7 +83,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
               onChange={(e) => handleOpenInNewTabChange(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+            <div className="w-11 h-6 bg-black/[0.12] dark:bg-white/[0.18] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/10 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-stone-600 peer-checked:bg-foreground/70"></div>
           </label>
         </div>
       </div>
