@@ -124,8 +124,12 @@ export default function Launchpad({
     >
       {/* 筛选框与网格算作同一块，一起在视口里居中。把筛选框钉在顶部、只让网格
           在剩余空间里居中的话，两者之间会裂开一大片空白，也就不成其为一块。*/}
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-14 px-10">
-      <div data-launchpad-surface className="flex w-full justify-center">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-10">
+      {/* 记号挂在整块上，而不是只挂在筛选框和网格各自身上：两者之间的间隔也是
+          启动台的地盘，点在那里不该退出。限宽到内容宽度，左右两侧的留白仍算
+          "外部"。*/}
+      <div data-launchpad-surface className="flex w-full max-w-5xl flex-col items-center gap-14">
+      <div className="flex w-full justify-center">
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -207,6 +211,7 @@ export default function Launchpad({
             ))}
           </div>
         )}
+      </div>
       </div>
       </div>
 
