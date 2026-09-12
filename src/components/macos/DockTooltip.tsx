@@ -24,7 +24,7 @@ export default function DockTooltip({ label, visible, className }: DockTooltipPr
         className
       )}
     >
-      <span className="liquid-glass block whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] leading-none text-foreground">
+      <span className="liquid-glass liquid-glass-floating block whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] leading-none text-foreground">
         {label}
       </span>
     </div>

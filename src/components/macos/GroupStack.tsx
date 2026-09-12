@@ -36,7 +36,7 @@ export default function GroupStack({
       className="absolute bottom-full mb-3 -translate-x-1/2 animate-stack-in z-20"
       style={{ left: anchorX }}
     >
-      <div className="liquid-glass rounded-2xl px-3 pb-3 pt-2 shadow-xl">
+      <div className="liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">
         <div className="px-1 pb-2 text-center text-[11px] font-medium tracking-wide text-muted-foreground select-none">
           {group ? group.name : t("quickLinks.ungrouped")}
         </div>
