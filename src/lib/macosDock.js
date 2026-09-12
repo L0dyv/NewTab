@@ -56,6 +56,17 @@ export function dockMagnification(distance, spread, maxScale) {
 }
 
 /**
+ * 堆栈切换到网格形态时用几列。
+ * 开方后向上取整，让网格尽量接近正方形；上限 5 列，避免面板横向顶出视口。
+ * DockBar 要用它算面板宽度以收拢锚点，所以两边必须取同一个值。
+ */
+export function stackGridColumns(count) {
+  const n = Math.max(0, Math.floor(count) || 0);
+  if (n <= 1) return 1;
+  return Math.max(1, Math.min(5, Math.ceil(Math.sqrt(n))));
+}
+
+/**
  * 取分组的前 n 个链接用于 Dock 图标拼贴。
  * 分组为空时返回空数组，由调用方渲染占位。
  */

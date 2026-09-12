@@ -15,12 +15,12 @@ import {
 } from "@dnd-kit/sortable";
 import { Check, LayoutGrid, Plus, X } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-import { dockMagnification } from "@/lib/macosDock";
+import { dockMagnification, stackGridColumns } from "@/lib/macosDock";
 import { reorderQuickLinkGroups, sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import { cn } from "@/lib/utils";
 import DockGroupItem from "./DockGroupItem";
 import DockTooltip from "./DockTooltip";
-import GroupStack from "./GroupStack";
+import GroupStack, { FAN_MAX_ITEMS } from "./GroupStack";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 const UNGROUPED_KEY = "__ungrouped__";
@@ -34,10 +34,13 @@ const MAGNIFY_LIFT = 10;
 const HOVER_OPEN_DELAY = 180;
 const HOVER_CLOSE_DELAY = 220;
 
-/** 与 GroupStack 的实际排版保持一致，用于把面板收拢进视口 */
+/** 与 GroupStack 网格的实际排版保持一致，用于把面板收拢进视口 */
 const STACK_CELL = 80;
 const STACK_GAP = 4;
 const STACK_PADDING = 24;
+
+/** 扇形名称药丸最宽 14rem 加间距，离左缘不足这个距离就把名称翻到右侧 */
+const FAN_LABEL_RESERVE = 260;
 
 interface DockSection {
   group: QuickLinkGroup | null;
@@ -90,6 +93,7 @@ export default function DockBar({
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [pinned, setPinned] = useState(false);
   const [anchorX, setAnchorX] = useState(0);
+  const [fanSide, setFanSide] = useState<"left" | "right">("left");
   const [isAdding, setIsAdding] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
@@ -210,14 +214,22 @@ export default function DockBar({
 
   const computeAnchor = useCallback((key: string, linkCount: number) => {
     const wrapper = wrapperRef.current;
-    if (!wrapper) return 0;
+    if (!wrapper) return { x: 0, fanSide: "left" as const };
 
     const slot = slotsRef.current.find((s) => s.outer.dataset.dockKey === key);
     const wrapperRect = wrapper.getBoundingClientRect();
     const center = slot ? slot.center : wrapperRect.left + wrapperRect.width / 2;
 
-    // 面板宽度可以精确算出，无需测量，也就不会有先渲染再修正的跳动
-    const columns = Math.max(1, Math.min(5, linkCount || 1));
+    // 扇形的名称药丸朝一侧伸出，离屏幕左缘太近时翻到右侧，免得被裁掉
+    const fanSide = center < FAN_LABEL_RESERVE ? ("right" as const) : ("left" as const);
+
+    // 扇形的图标就落在 Dock 图标正上方，不需要收拢
+    if (linkCount > 0 && linkCount <= FAN_MAX_ITEMS) {
+      return { x: center - wrapperRect.left, fanSide };
+    }
+
+    // 网格是一整块面板，宽度可以精确算出，无需测量也就没有先渲染再修正的跳动
+    const columns = stackGridColumns(linkCount);
     const stackWidth = columns * STACK_CELL + (columns - 1) * STACK_GAP + STACK_PADDING;
     const half = stackWidth / 2;
     const margin = 12;
@@ -226,13 +238,15 @@ export default function DockBar({
       Math.max(center, half + margin),
       window.innerWidth - half - margin
     );
-    return clamped - wrapperRect.left;
+    return { x: clamped - wrapperRect.left, fanSide };
   }, []);
 
   const openStack = useCallback(
     (key: string, pin: boolean) => {
       const section = sections.find((s) => (s.group?.id ?? UNGROUPED_KEY) === key);
-      setAnchorX(computeAnchor(key, section?.links.length ?? 0));
+      const anchor = computeAnchor(key, section?.links.length ?? 0);
+      setAnchorX(anchor.x);
+      setFanSide(anchor.fanSide);
       setOpenKey(key);
       if (pin) setPinned(true);
     },
@@ -389,6 +403,7 @@ export default function DockBar({
           links={openSection.links}
           groups={groups}
           anchorX={anchorX}
+          fanSide={fanSide}
           onCopy={onCopy}
           onMoveToGroup={onMoveToGroup}
           onRemove={onRemoveLink}

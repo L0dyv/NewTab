@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildDockSections,
   dockMagnification,
+  stackGridColumns,
   tilePreviewLinks,
   filterSections,
   paginateLaunchpad,
@@ -83,6 +84,22 @@ const links = [
   assert.equal(dockMagnification(10, 0, 1.8), 1, "zero spread disables magnification");
   assert.equal(dockMagnification(10, 120, 1), 1, "maxScale of 1 disables magnification");
   assert.equal(dockMagnification(NaN, 120, 1.8), 1, "non-finite distance is safe");
+}
+
+// --- stackGridColumns ------------------------------------------------------
+
+{
+  assert.equal(stackGridColumns(9), 3, "a square count uses its own root");
+  assert.equal(stackGridColumns(10), 4, "a non-square count rounds the root up");
+  assert.equal(stackGridColumns(1), 1, "a single link needs one column");
+  assert.equal(stackGridColumns(0), 1, "an empty grid still reports one column");
+  assert.equal(stackGridColumns(100), 5, "column count is capped so the panel fits");
+
+  for (let n = 1; n <= 60; n += 1) {
+    const cols = stackGridColumns(n);
+    assert.ok(cols >= 1 && cols <= 5, `columns stay in range for ${n} links`);
+    assert.ok(Number.isInteger(cols), `columns are whole for ${n} links`);
+  }
 }
 
 // --- tilePreviewLinks ------------------------------------------------------
