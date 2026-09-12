@@ -412,7 +412,7 @@ export default function DockBar({
       )}
 
       <div
-        className="liquid-glass liquid-glass-floating flex items-end gap-1.5 rounded-[26px] px-2.5 py-2"
+        className="liquid-glass liquid-glass-floating flex items-end gap-2.5 rounded-[24px] px-3 py-2.5"
         onMouseMove={handlePointerMove}
         onMouseEnter={handleDockEnter}
       >
@@ -436,7 +436,7 @@ export default function DockBar({
           onDragCancel={() => suppressMagnification(false)}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-end gap-1.5">
+            <div className="flex items-end gap-2.5">
               {sortedGroups.map((group) => {
                 const section = sections.find((s) => s.group?.id === group.id);
                 return (
@@ -460,7 +460,7 @@ export default function DockBar({
 
         {/* 分隔线只在左侧确实有分组时才画，否则会孤零零挂在 Dock 开头 */}
         {(ungroupedCount > 0 || sortedGroups.length > 0) && (
-          <div className="mx-1.5 h-12 w-px self-center bg-foreground/15" />
+          <div className="mx-1 h-9 w-px self-center bg-foreground/15" />
         )}
 
         {/* 新建分组 */}
@@ -488,9 +488,9 @@ export default function DockBar({
             <DockTooltip label={t("quickLinks.newGroup")} visible={hoveredSlot === "__add__"} />
           )}
 
-          <div className="dock-item flex flex-col items-center gap-1.5">
+          <div className="dock-item flex">
             {isAdding ? (
-              <div className="flex h-10 w-10 items-center justify-center gap-1 rounded-[11px] border border-dashed border-border">
+              <div className="flex h-[42px] w-[42px] items-center justify-center gap-1 rounded-[12px] border border-dashed border-border">
                 <button
                   type="button"
                   onClick={commitAddGroup}
@@ -520,7 +520,7 @@ export default function DockBar({
                   suppressMagnification(true);
                 }}
                 className={cn(
-                  "flex h-10 w-10 items-center justify-center rounded-[11px]",
+                  "flex h-[42px] w-[42px] items-center justify-center rounded-[12px]",
                   "border border-dashed border-border text-muted-foreground/70",
                   "hover:border-foreground/40 hover:text-foreground",
                   "outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -529,7 +529,6 @@ export default function DockBar({
                 <Plus className="h-5 w-5" />
               </button>
             )}
-            <span className="h-1 w-1" />
           </div>
         </div>
 
@@ -542,7 +541,7 @@ export default function DockBar({
         >
           <DockTooltip label={t("dock.showAll")} visible={hoveredSlot === "__launchpad__"} />
 
-          <div className="dock-item flex flex-col items-center gap-1.5">
+          <div className="dock-item flex">
             <button
               type="button"
               aria-label={t("dock.showAll")}
@@ -553,14 +552,13 @@ export default function DockBar({
               }}
               onMouseEnter={() => clearTimers()}
               className={cn(
-                "liquid-glass flex h-10 w-10 items-center justify-center rounded-[11px]",
+                "liquid-glass flex h-[42px] w-[42px] items-center justify-center rounded-[12px]",
                 "text-foreground/75 hover:text-foreground",
                 "outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
             >
               <LayoutGrid className="h-6 w-6" strokeWidth={1.75} />
             </button>
-            <span className="h-1 w-1" />
           </div>
         </div>
       </div>

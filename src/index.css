@@ -49,9 +49,9 @@
        背后永远有壁纸，那是这套材质成立的前提。这里不做成可见的渐变设计，
        只做到"底面不是平的"，让模糊有东西可以平均。*/
     --ambient-tints:
-      radial-gradient(55rem 38rem at 12% -8%, rgba(120, 113, 108, 0.1), transparent 62%),
-      radial-gradient(48rem 34rem at 88% 6%, rgba(168, 162, 158, 0.13), transparent 60%),
-      radial-gradient(65rem 42rem at 50% 108%, rgba(120, 113, 108, 0.09), transparent 62%);
+      radial-gradient(55rem 38rem at 12% -8%, rgba(134, 136, 142, 0.09), transparent 62%),
+      radial-gradient(48rem 34rem at 88% 6%, rgba(150, 152, 158, 0.11), transparent 60%),
+      radial-gradient(65rem 42rem at 50% 108%, rgba(134, 136, 142, 0.08), transparent 62%);
 
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
@@ -239,6 +239,13 @@
     cursor: grabbing;
   }
 
+  /* Dock 图标上的字形用衬线体，走系统字体不引入 webfont。
+     Windows 的中日韩衬线是宋体，macOS 是宋体-简。*/
+  .font-glyph {
+    font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun',
+      'Noto Serif CJK SC', serif;
+  }
+
   /* 隐藏滚动条（保持滚动功能） */
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
@@ -348,11 +355,24 @@
     transform-origin: bottom center;
   }
 
-  /* Launchpad 进入：整体轻微放大淡入，模仿 macOS 的开合 */
-  @keyframes launchpad-in {
+  /* Launchpad 的开场分两层，这是它辨识度的来源：
+     底板只淡入，让桌面留在原处被压暗、被模糊，读作"盖上来的一层"而不是
+     "跳走的一页"；图标则从偏小处弹到原位，这个缩放差正是 macOS 启动台的
+     标志性动作。两层用同一时长但不同曲线。*/
+  @keyframes launchpad-scrim-in {
     from {
       opacity: 0;
-      transform: scale(1.06);
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes launchpad-grid-in {
+    from {
+      opacity: 0;
+      transform: scale(0.86);
     }
 
     to {
@@ -362,7 +382,11 @@
   }
 
   .animate-launchpad-in {
-    animation: launchpad-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: launchpad-scrim-in 180ms ease-out;
+  }
+
+  .animate-launchpad-grid {
+    animation: launchpad-grid-in 260ms cubic-bezier(0.16, 1.06, 0.3, 1) both;
   }
 
   /* 降低动态效果偏好：保留状态变化，去掉位移与缩放动画 */

@@ -124,7 +124,7 @@ export default function DockGroupItem({
         <DockTooltip label={label} visible={hovered && !isDragging && !isOpen} />
       )}
 
-      <div className="dock-item flex flex-col items-center gap-1.5">
+      <div className="dock-item flex">
         <button
           type="button"
           title=""
@@ -137,19 +137,22 @@ export default function DockGroupItem({
             onHover();
           }}
           onBlur={() => setHovered(false)}
-          className="rounded-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <GroupTile name={label} seed={group?.id ?? "__ungrouped__"} neutral={!group} />
+          <GroupTile name={label} />
         </button>
-
-        {/* 展开状态指示点，对应 macOS Dock 上已打开应用的圆点 */}
-        <span
-          className={cn(
-            "h-1 w-1 rounded-full transition-opacity duration-150",
-            isOpen ? "dock-open-dot bg-foreground/70 opacity-100" : "opacity-0"
-          )}
-        />
       </div>
+
+      {/* 展开指示点，对应 macOS Dock 上已打开应用的圆点。绝对定位是必须的：
+          让它占文档流的话，每一项的盒子会变成"图标 + 间距 + 圆点"，图标就被
+          顶离垂直中心。macOS 上这个点画在 Dock 的内边距里，不推动图标。*/}
+      <span
+        className={cn(
+          "pointer-events-none absolute inset-x-0 -bottom-[7px] mx-auto h-1 w-1 rounded-full",
+          "transition-opacity duration-150",
+          isOpen ? "dock-open-dot bg-foreground/60 opacity-100" : "opacity-0"
+        )}
+      />
     </div>
   );
 
