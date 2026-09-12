@@ -31,10 +31,9 @@ const ThemeToggle = () => {
           {getThemeIcon()}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="bg-popover/95 border-border text-popover-foreground shadow-md backdrop-blur-sm"
-      >
+      {/* 玻璃与圆角由 DropdownMenuContent 自己带，这里不再单独铺一层底色，
+          否则又会盖住材质，和其他菜单也对不上 */}
+      <DropdownMenuContent align="end">
         <DropdownMenuItem
           onClick={() => setTheme('light')}
           className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
