@@ -412,7 +412,7 @@ export default function DockBar({
       )}
 
       <div
-        className="liquid-glass liquid-glass-floating flex items-end gap-2.5 rounded-[24px] px-3 py-2.5"
+        className="liquid-glass liquid-glass-floating flex items-end gap-3.5 rounded-[24px] px-3.5 py-2.5"
         onMouseMove={handlePointerMove}
         onMouseEnter={handleDockEnter}
       >
@@ -436,7 +436,7 @@ export default function DockBar({
           onDragCancel={() => suppressMagnification(false)}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-end gap-2.5">
+            <div className="flex items-end gap-3.5">
               {sortedGroups.map((group) => {
                 const section = sections.find((s) => s.group?.id === group.id);
                 return (
