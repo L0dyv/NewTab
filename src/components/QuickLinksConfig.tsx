@@ -295,7 +295,7 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
       )}
 
       {/* 添加新快速链接 */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('quickLinks.addNew')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div>
@@ -331,7 +331,7 @@ const QuickLinksConfig = ({ links, onLinksChange, groups, onGroupsChange }: Quic
                 id="linkGroup"
                 value={newLink.groupId}
                 onChange={(e) => setNewLink({ ...newLink, groupId: e.target.value })}
-                className="flex h-9 w-full rounded-md border border-foreground/15 bg-foreground/[0.05] px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="flex h-9 w-full rounded-md border border-foreground/15 bg-black/[0.03] dark:bg-white/[0.05] px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="">{t('quickLinks.ungrouped')}</option>
                 {groups.sort((a, b) => a.order - b.order).map(g => (

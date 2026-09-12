@@ -298,7 +298,7 @@ const SearchEngineConfig = ({ engines, onEnginesChange }: SearchEngineConfigProp
       </div>
 
       {/* 添加新搜索引擎 */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('searchEngines.addNew')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
@@ -331,7 +331,7 @@ const SearchEngineConfig = ({ engines, onEnginesChange }: SearchEngineConfigProp
       </div>
 
       {/* Kagi Assistant 说明 */}
-      <div className="p-3 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-3 rounded-lg border border-foreground/10">
         <div className="flex items-start gap-2">
           <Bot className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div>

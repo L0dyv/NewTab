@@ -50,7 +50,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
   return (
     <div className="p-6 space-y-6">
       {/* 语言设置 */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('language.title')}</h3>
         <div className="flex items-center justify-between">
           <div>
@@ -59,7 +59,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
           <select
             value={locale}
             onChange={(e) => setLocale(e.target.value as 'zh-CN' | 'en')}
-            className="px-3 py-1.5 rounded-md border border-foreground/10 bg-foreground/[0.05] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="px-3 py-1.5 rounded-md border border-foreground/10 bg-black/[0.03] dark:bg-white/[0.05] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {supportedLocales.map((loc) => (
               <option key={loc.value} value={loc.value}>{loc.label}</option>
@@ -69,7 +69,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
       </div>
 
       {/* 搜索行为设置 */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('generalSettings.searchBehavior')}</h3>
         <div className="flex items-center justify-between">
           <div>

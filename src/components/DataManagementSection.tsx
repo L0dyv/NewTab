@@ -203,7 +203,7 @@ export default function DataManagementSection({ onSettingsChanged }: DataManagem
       />
 
       {/* 当前设置摘要 */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('importExport.currentSettings')}</h3>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
@@ -253,7 +253,7 @@ export default function DataManagementSection({ onSettingsChanged }: DataManagem
       </div>
 
       {/* 云备份（WebDAV） */}
-      <div className="p-4 rounded-lg bg-foreground/[0.04] border border-foreground/10 space-y-4">
+      <div className="p-4 rounded-lg border border-foreground/10 space-y-4">
         <h3 className="text-sm font-medium text-foreground">{t('importExport.cloudBackup')}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
