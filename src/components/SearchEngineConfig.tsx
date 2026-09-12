@@ -95,7 +95,7 @@ function SortableEngineItem({ engine, onSetDefault, onToggleEnabled, skipDeleteC
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground truncate">{engine.name}</span>
           {engine.isAI && (
-            <span className="flex items-center gap-1 bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded text-xs font-medium">
+            <span className="flex items-center gap-1 bg-black/[0.06] dark:bg-white/[0.1] text-foreground/75 px-1.5 py-0.5 rounded text-xs font-medium">
               <Bot className="h-3 w-3" />
               AI
             </span>
@@ -107,7 +107,7 @@ function SortableEngineItem({ engine, onSetDefault, onToggleEnabled, skipDeleteC
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
         {engine.isDefault ? (
-          <span className="bg-stone-200 dark:bg-stone-700 text-stone-800 dark:text-stone-200 px-2 py-0.5 rounded text-xs font-medium">
+          <span className="bg-black/[0.06] dark:bg-white/[0.1] text-foreground/75 px-2 py-0.5 rounded text-xs font-medium">
             {t('searchEngines.isDefault')}
           </span>
         ) : (
