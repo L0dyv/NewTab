@@ -428,6 +428,9 @@ export default function DockBar({
           />
         )}
 
+        {/* 没有分组时整块不渲染。空的包裹 div 宽度为 0 却仍然参与 flex 的
+            gap 计算，会在 Dock 左端凭空多出一个间距，两侧留白就不对称了。*/}
+        {sortedGroups.length > 0 && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -457,6 +460,7 @@ export default function DockBar({
             </div>
           </SortableContext>
         </DndContext>
+        )}
 
         {/* 分隔线只在左侧确实有分组时才画，否则会孤零零挂在 Dock 开头 */}
         {(ungroupedCount > 0 || sortedGroups.length > 0) && (
