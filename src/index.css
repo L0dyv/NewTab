@@ -11,7 +11,7 @@
        纯白，两者就落在同一个亮度带里，页面与面板读作同一个平色。压到 96% 足以
        让面板亮出来，再往下就不是浅色模式而是灰色模式了——剩下的层次交给边界
        和投影，而不是继续压暗页面。*/
-    --background: 48 10% 96%;
+    --background: 48 14% 97%;
     --foreground: 24 10% 10%;
     /* stone-900 */
 
@@ -56,9 +56,9 @@
        上落差不足 2%，等于装了机制却没打开，整页看下来一点彩度也没有。
        现在推到能看见，但仍是大面积柔和的色块，不与内容争。*/
     --ambient-tints:
-      radial-gradient(58rem 44rem at 14% 12%, rgba(150, 164, 196, 0.12), transparent 66%),
-      radial-gradient(52rem 40rem at 86% 16%, rgba(206, 180, 164, 0.1), transparent 64%),
-      radial-gradient(64rem 46rem at 50% 92%, rgba(160, 182, 188, 0.09), transparent 66%);
+      radial-gradient(58rem 44rem at 14% 12%, rgba(148, 166, 204, 0.15), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(214, 182, 160, 0.13), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(158, 186, 194, 0.115), transparent 66%);
 
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
