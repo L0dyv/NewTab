@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
-import { Settings, Settings2, Search, Puzzle } from "lucide-react";
+import { Settings, Settings2, Search, Puzzle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import AutoComplete from "@/components/AutoComplete";
 import ThemeToggle from "@/components/ThemeToggle";
 import SettingsModal from "@/components/SettingsModal";
@@ -494,15 +495,25 @@ const Index = () => {
               onChange={setQuery}
               onSubmit={handleSubmit}
               placeholder={isKagiSelected ? t('index.kagiPlaceholder') : t('index.placeholder')}
-              className="liquid-glass w-full rounded-full pl-11 pr-24 py-3.5 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all text-sm"
+              className="liquid-glass w-full rounded-full pl-11 pr-12 py-3.5 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all text-sm"
             />
 
-            {/* 搜索按钮在输入框内 - V0 风格 */}
+            {/* 执行按钮。输入框左侧已经有放大镜表示"这是搜索"，这里用箭头表示
+                "执行"这个动作，而不是重复同一个符号。没有输入时保持为幽灵态，
+                避免在整页柔和质感里出现一个突兀的深色块 */}
             <Button
               onClick={() => handleSubmit(query)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 h-9 px-5 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-sm shadow-sm hover:shadow-md transition-all duration-200"
+              size="icon"
+              variant="ghost"
+              aria-label={isKagiSelected ? t('index.ask') : t('common.search')}
+              className={cn(
+                "absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full transition-colors duration-200",
+                query.trim()
+                  ? "bg-foreground/85 text-background hover:bg-foreground"
+                  : "text-muted-foreground/60 hover:bg-foreground/10 hover:text-foreground"
+              )}
             >
-              {isKagiSelected ? t('index.ask') : t('common.search')}
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
 
