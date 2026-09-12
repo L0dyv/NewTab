@@ -56,9 +56,9 @@
        上落差不足 2%，等于装了机制却没打开，整页看下来一点彩度也没有。
        现在推到能看见，但仍是大面积柔和的色块，不与内容争。*/
     --ambient-tints:
-      radial-gradient(58rem 44rem at 14% 12%, rgba(136, 158, 214, 0.34), transparent 66%),
-      radial-gradient(52rem 40rem at 86% 16%, rgba(228, 172, 146, 0.3), transparent 64%),
-      radial-gradient(64rem 46rem at 50% 92%, rgba(146, 186, 198, 0.28), transparent 66%);
+      radial-gradient(58rem 44rem at 14% 12%, rgba(150, 164, 196, 0.12), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(206, 180, 164, 0.1), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(160, 182, 188, 0.09), transparent 66%);
 
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
@@ -71,9 +71,11 @@
   }
 
   .dark {
-    /* ===== V0 Stone 深色（优雅深色模式）===== */
-    --background: 24 10% 4%;
-    /* stone-950 */
+    /* ===== V0 Stone 深色（优雅深色模式）=====
+       比 stone-950 提亮一点，但不要提到发灰。4% 亮度接近纯黑，面板与页面之间
+       没有余地；提到 10% 又太灰、发闷。7% 是有深度而不死黑的位置，色相略偏冷
+       以免读成一层脏灰。*/
+    --background: 220 7% 7%;
     --foreground: 60 9% 98%;
     /* stone-50 */
 
@@ -116,9 +118,9 @@
     --sidebar-ring: 24 6% 22%;
 
     --ambient-tints:
-      radial-gradient(58rem 44rem at 14% 12%, rgba(110, 142, 224, 0.22), transparent 66%),
-      radial-gradient(52rem 40rem at 86% 16%, rgba(214, 138, 104, 0.17), transparent 64%),
-      radial-gradient(64rem 46rem at 50% 92%, rgba(104, 162, 190, 0.18), transparent 66%);
+      radial-gradient(58rem 44rem at 14% 12%, rgba(140, 164, 220, 0.08), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(212, 164, 140, 0.06), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(140, 176, 196, 0.06), transparent 66%);
   }
 }
 
@@ -189,6 +191,17 @@
     transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
+  }
+
+  /* 切换主题的那一帧要掐掉全部过渡。
+     上面这条全局过渡是给 hover 之类的局部状态用的，主题切换却会让整页每个
+     元素同时做 150ms 渐变，看起来就是"按了没有马上变"。而且 background-image
+     不在过渡属性里，背景色块是瞬间跳的，与其余渐变不同步，更像卡顿而非过渡。*/
+  .theme-switching,
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
   }
 
   /* 更精细的阴影 - Stone 色系 */
@@ -289,7 +302,10 @@
      与页面同亮度是对的；浮层玻璃要前进，在浅色页面上必须比页面更亮，才读得出
      "这是盖在上面的另一张纸"。亮度与页面持平的浮层只会呈现为一层没有立场的灰雾。*/
   .liquid-glass-floating {
-    background: rgba(255, 255, 255, 0.94);
+    /* 0.94 时浮层几乎是实心白，完全透不出底下的东西。那个值是背景还平着、
+       面板只能靠拉高自身亮度才分得开时定的；背景有了色彩之后这个约束就松了，
+       降到这里既仍明显亮于页面，也真的能透出背后的色调。*/
+    background: rgba(255, 255, 255, 0.72);
     /* 浅色页面上只靠亮度差不够——差值再大页面就不是浅色了。投影承担余下的
        分离工作：近处一道紧的边影勾出轮廓，远处一片扩散影把面板抬起来。*/
     box-shadow:
@@ -301,7 +317,7 @@
   /* box-shadow 是整条覆盖的，所以这里要把基础态那道顶边高光重新带上，
      否则深色浮层会丢掉勾轮廓的亮边。*/
   .dark .liquid-glass-floating {
-    background: rgba(255, 255, 255, 0.09);
+    background: rgba(255, 255, 255, 0.1);
     box-shadow:
       0 12px 32px -10px rgba(0, 0, 0, 0.6),
       0 2px 8px -3px rgba(0, 0, 0, 0.4),
