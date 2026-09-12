@@ -39,8 +39,8 @@ const STACK_CELL = 80;
 const STACK_GAP = 4;
 const STACK_PADDING = 24;
 
-/** 扇形名称药丸最宽 14rem 加间距，离左缘不足这个距离就把名称翻到右侧 */
-const FAN_LABEL_RESERVE = 260;
+/** 扇形名称药丸最宽 11rem 加图标与间距，离左缘不足这个距离就把名称翻到右侧 */
+const FAN_LABEL_RESERVE = 230;
 
 interface DockSection {
   group: QuickLinkGroup | null;
@@ -420,7 +420,6 @@ export default function DockBar({
         {ungroupedSection && (
           <DockGroupItem
             group={null}
-            links={ungroupedSection.links}
             isOpen={openKey === UNGROUPED_KEY}
             sortable={false}
             registerRef={nextRef(UNGROUPED_KEY)}
@@ -444,7 +443,6 @@ export default function DockBar({
                   <DockGroupItem
                     key={group.id}
                     group={group}
-                    links={section?.links ?? []}
                     isOpen={openKey === group.id}
                     sortable
                     registerRef={nextRef(group.id)}
@@ -492,7 +490,7 @@ export default function DockBar({
 
           <div className="dock-item flex flex-col items-center gap-1.5">
             {isAdding ? (
-              <div className="flex h-14 w-14 items-center justify-center gap-1 rounded-[16px] border border-dashed border-border">
+              <div className="flex h-10 w-10 items-center justify-center gap-1 rounded-[11px] border border-dashed border-border">
                 <button
                   type="button"
                   onClick={commitAddGroup}
@@ -522,7 +520,7 @@ export default function DockBar({
                   suppressMagnification(true);
                 }}
                 className={cn(
-                  "flex h-14 w-14 items-center justify-center rounded-[16px]",
+                  "flex h-10 w-10 items-center justify-center rounded-[11px]",
                   "border border-dashed border-border text-muted-foreground/70",
                   "hover:border-foreground/40 hover:text-foreground",
                   "outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -555,7 +553,7 @@ export default function DockBar({
               }}
               onMouseEnter={() => clearTimers()}
               className={cn(
-                "liquid-glass flex h-14 w-14 items-center justify-center rounded-[16px]",
+                "liquid-glass flex h-10 w-10 items-center justify-center rounded-[11px]",
                 "text-foreground/75 hover:text-foreground",
                 "outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}

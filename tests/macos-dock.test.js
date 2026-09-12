@@ -4,6 +4,8 @@ import {
   buildDockSections,
   dockMagnification,
   stackGridColumns,
+  groupInitial,
+  groupSwatchIndex,
   tilePreviewLinks,
   filterSections,
   paginateLaunchpad,
@@ -99,6 +101,58 @@ const links = [
     const cols = stackGridColumns(n);
     assert.ok(cols >= 1 && cols <= 5, `columns stay in range for ${n} links`);
     assert.ok(Number.isInteger(cols), `columns are whole for ${n} links`);
+  }
+}
+
+// --- groupInitial ----------------------------------------------------------
+
+{
+  assert.equal(groupInitial("Mail"), "M", "latin initials are upper-cased");
+  assert.equal(groupInitial("mail"), "M", "a lower-case name still yields a capital");
+  assert.equal(groupInitial("邮箱"), "邮", "a CJK name keeps its first character");
+  assert.equal(groupInitial("  Usage  "), "U", "surrounding space is ignored");
+  assert.equal(groupInitial("3D"), "3", "a digit passes through unchanged");
+  assert.equal(groupInitial(""), "?", "an empty name falls back to a placeholder");
+  assert.equal(groupInitial(null), "?", "a missing name falls back to a placeholder");
+
+  // charAt 会把代理对从中间切开，留下半个码元
+  assert.equal(groupInitial("🚀 Launch"), "🚀", "an astral character is not split in half");
+}
+
+// --- groupSwatchIndex ------------------------------------------------------
+
+{
+  const PALETTE = 8;
+  const index = groupSwatchIndex("group-1", PALETTE);
+
+  assert.ok(Number.isInteger(index), "the index is a whole number");
+  assert.ok(index >= 0 && index < PALETTE, "the index stays inside the palette");
+  assert.equal(groupSwatchIndex("group-1", PALETTE), index, "the same id is stable");
+  assert.equal(groupSwatchIndex("", PALETTE), groupSwatchIndex("", PALETTE), "an empty id is stable");
+  assert.ok(Number.isInteger(groupSwatchIndex(null, PALETTE)), "a missing id does not throw");
+  assert.equal(groupSwatchIndex("a", 0), 0, "a degenerate palette size is tolerated");
+  assert.equal(groupSwatchIndex("a", 1), 0, "a single-colour palette always picks it");
+
+  // 修复前哈希与 id 线性相关，g1/g2/g3 会依次落到 0/1/2。要防的是这种相关性
+  // 本身。不能断言"相邻 id 必不撞色"——8 个颜色配 6 个分组，正确的实现也会撞。
+  const sequence = Array.from({ length: 16 }, (_, i) => groupSwatchIndex(`g${i}`, PALETTE));
+  const tracksTheIds = sequence.every(
+    (value, i) => i === 0 || value === (sequence[i - 1] + 1) % PALETTE
+  );
+  assert.ok(!tracksTheIds, "swatch choice must not simply follow the id sequence");
+
+  // 分布要大致均匀，而不是挤在少数几个颜色上
+  const counts = new Array(PALETTE).fill(0);
+  const samples = 400;
+  for (let i = 0; i < samples; i += 1) {
+    counts[groupSwatchIndex(`group-${i}`, PALETTE)] += 1;
+  }
+  const even = samples / PALETTE;
+  for (const count of counts) {
+    assert.ok(
+      count > even * 0.5 && count < even * 1.7,
+      `a palette entry drew ${count} of ${samples}, far from an even ${even}`
+    );
   }
 }
 

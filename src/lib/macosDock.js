@@ -67,7 +67,50 @@ export function stackGridColumns(count) {
 }
 
 /**
- * 取分组的前 n 个链接用于 Dock 图标拼贴。
+ * 取分组名的首字作为 Dock 图标上的字形。
+ *
+ * 用 Array.from 而不是 charAt，否则 emoji 一类的代理对会被从中间截断。
+ * 拉丁字母统一转大写，中日韩文字保持原样。
+ */
+export function groupInitial(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "?";
+
+  const first = Array.from(trimmed)[0];
+  return /[a-z]/i.test(first) ? first.toUpperCase() : first;
+}
+
+/**
+ * 由稳定散列给每个分组挑一个配色，返回色板下标。
+ *
+ * 六个一模一样的字母方块看起来像键盘而不像 Dock，所以按 id 分配颜色。
+ * 散列到色板而不是散列到色相环：色相自由取值必然会撞进橄榄绿、荧光紫这类
+ * 不好看的区段，而且 HSL 的 L 不等于感知明度，同一个 L 下黄绿比蓝紫亮得多，
+ * 一排方块会明暗不齐。色板里每个颜色的明度是单独调过的。
+ *
+ * 必须只依赖 id：分组改名或重排后颜色不应该跟着变。
+ */
+export function groupSwatchIndex(seed, count) {
+  const size = Math.max(1, Math.floor(count) || 1);
+  const text = String(seed ?? "");
+
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  // 末尾必须做一次雪崩混合。少了这步，只差末位的 id（g1/g2/g3）算出的哈希也
+  // 只差 1，取模后会落到相邻的色板项上，Dock 上就是一排近似同色的方块。
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 2246822507);
+  hash ^= hash >>> 13;
+
+  return (hash >>> 0) % size;
+}
+
+/**
+ * 取分组的前 n 个链接，用于需要预览组内内容的地方。
  * 分组为空时返回空数组，由调用方渲染占位。
  */
 export function tilePreviewLinks(links, count = 4) {

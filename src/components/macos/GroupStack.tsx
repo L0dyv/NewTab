@@ -11,7 +11,7 @@ import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 export const FAN_MAX_ITEMS = 8;
 
 /** 扇形里图标的边长，DockBar 计算锚点时要用同一个值 */
-export const FAN_ICON_SIZE = 44;
+export const FAN_ICON_SIZE = 36;
 
 interface GroupStackProps extends LinkActions {
   group: QuickLinkGroup | null;
@@ -48,7 +48,7 @@ export default function GroupStack({
   if (links.length === 0) {
     return (
       <div
-        className="absolute bottom-full z-20 mb-4 -translate-x-1/2 animate-stack-in"
+        className="absolute bottom-full z-20 mb-6 -translate-x-1/2 animate-stack-in"
         style={{ left: anchorX }}
       >
         <div className="liquid-glass liquid-glass-floating whitespace-nowrap rounded-full px-4 py-2 text-xs text-muted-foreground">
@@ -64,7 +64,7 @@ export default function GroupStack({
 
     return (
       <div
-        className="absolute bottom-full z-20 mb-4"
+        className="absolute bottom-full z-20 mb-6"
         style={{
           left: labelsLeft ? anchorX + FAN_ICON_SIZE / 2 : anchorX - FAN_ICON_SIZE / 2,
           transform: labelsLeft ? "translateX(-100%)" : undefined,
@@ -73,7 +73,7 @@ export default function GroupStack({
         {/* flex-col-reverse 让第一个链接落在最靠近 Dock 的一端 */}
         <div
           className={cn(
-            "flex flex-col-reverse gap-2.5",
+            "flex flex-col-reverse gap-3",
             labelsLeft ? "items-end" : "items-start"
           )}
         >
@@ -97,7 +97,7 @@ export default function GroupStack({
                   !labelsLeft && "flex-row-reverse"
                 )}
               >
-                <span className="liquid-glass liquid-glass-floating max-w-[14rem] truncate rounded-full px-3 py-1.5 text-xs text-foreground">
+                <span className="liquid-glass liquid-glass-floating max-w-[11rem] truncate rounded-full px-2.5 py-1 text-[11px] text-foreground">
                   {link.name}
                 </span>
                 <span className="block transition-transform duration-200 group-hover:scale-110 group-focus-visible:scale-110">
@@ -121,7 +121,7 @@ export default function GroupStack({
 
   return (
     <div
-      className="absolute bottom-full z-20 mb-4 -translate-x-1/2 animate-stack-in"
+      className="absolute bottom-full z-20 mb-6 -translate-x-1/2 animate-stack-in"
       style={{ left: anchorX }}
     >
       <div className="liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">

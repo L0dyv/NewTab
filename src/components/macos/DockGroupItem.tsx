@@ -13,11 +13,10 @@ import { useI18n } from "@/hooks/useI18n";
 import { cn } from "@/lib/utils";
 import GroupTile from "./GroupTile";
 import DockTooltip from "./DockTooltip";
-import type { QuickLink, QuickLinkGroup } from "@/lib/types";
+import type { QuickLinkGroup } from "@/lib/types";
 
 export interface DockGroupItemProps {
   group: QuickLinkGroup | null;
-  links: QuickLink[];
   isOpen: boolean;
   /** 未分组这一项不参与排序，也不能重命名或删除 */
   sortable: boolean;
@@ -38,7 +37,6 @@ export interface DockGroupItemProps {
  */
 export default function DockGroupItem({
   group,
-  links,
   isOpen,
   sortable,
   registerRef,
@@ -139,9 +137,9 @@ export default function DockGroupItem({
             onHover();
           }}
           onBlur={() => setHovered(false)}
-          className="rounded-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <GroupTile links={links} size={56} />
+          <GroupTile name={label} seed={group?.id ?? "__ungrouped__"} neutral={!group} />
         </button>
 
         {/* 展开状态指示点，对应 macOS Dock 上已打开应用的圆点 */}
