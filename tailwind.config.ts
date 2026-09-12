@@ -79,12 +79,12 @@ export default {
 				}
 			},
 			fontFamily: {
-				// 界面文字用系统 UI 字体，与 index.css 里 body 的声明保持一致
+				// 与 index.css 里 body 的声明保持一致：Latin 用 Inter，中文走系统字体
 				sans: [
+					'"Inter Variable"', '"PingFang SC"', '"HarmonyOS Sans SC"',
+					'"Noto Sans SC"', '"Microsoft YaHei UI"', '"Microsoft YaHei"',
 					'-apple-system', 'BlinkMacSystemFont', '"Segoe UI Variable Text"',
-					'"Segoe UI"', '"PingFang SC"', '"Hiragino Sans GB"',
-					'"Microsoft YaHei UI"', '"Microsoft YaHei"', '"Noto Sans SC"',
-					'system-ui', 'sans-serif',
+					'"Segoe UI"', 'system-ui', 'sans-serif',
 				],
 				// 衬线只留给大字号标题
 				serif: ['"Noto Serif SC"', 'Georgia', '"Times New Roman"', 'serif'],

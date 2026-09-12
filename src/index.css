@@ -106,13 +106,46 @@
     @apply border-border;
   }
 
-  /* 界面文字走系统 UI 字体：UI 文字小而密，衬线的笔画细节在 10-12px 上
-     只剩噪声。衬线留给需要它的大标题，用 Tailwind 的 font-serif 单独指定。*/
+  /* 中文 fallback 的光学补偿。
+     中英混排时 Latin 字形来自字体栈里第一个匹配的字体，中文字形 fallback 到
+     系统中文字体。但中文字体把字面填满整个 em box，Latin 字体则留有大量留白，
+     所以同一 font-size 下中文会显得大一号、也更重。这里用 size-adjust 重新
+     声明本地中文字体，把它缩到与 Latin 光学等大。
+     苹方本身就是按与 SF 配对设计的，不需要补偿，因此不在此列。
+     若本地没装对应字体，该 @font-face 不生效，字体栈自然落到下一项。*/
+  @font-face {
+    font-family: 'Microsoft YaHei UI';
+    src: local('Microsoft YaHei UI');
+    size-adjust: 94%;
+  }
+
+  @font-face {
+    font-family: 'Microsoft YaHei';
+    src: local('Microsoft YaHei');
+    size-adjust: 94%;
+  }
+
+  @font-face {
+    font-family: 'HarmonyOS Sans SC';
+    src: local('HarmonyOS Sans SC');
+    size-adjust: 95%;
+  }
+
+  @font-face {
+    font-family: 'Noto Sans SC';
+    src: local('Noto Sans SC');
+    size-adjust: 95%;
+  }
+
+  /* 界面文字：Latin 用 Inter（专为小字号 UI 设计），中文走系统字体。
+     UI 文字小而密，衬线的笔画细节在 10-12px 上只剩噪声，因此衬线只留给
+     需要它的大标题，用 Tailwind 的 font-serif 单独指定。*/
   body {
     @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text',
-      'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI',
-      'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+    font-family: 'Inter Variable', 'PingFang SC', 'HarmonyOS Sans SC',
+      'Noto Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
+      -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+      system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

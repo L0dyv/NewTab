@@ -3,8 +3,10 @@ import App from './App.tsx'
 import './index.css'
 import { initFaviconCache } from './lib/faviconCache'
 
-// 本地化字体 - Noto Serif SC（思源宋体）
-// 衬线只用在首页的欢迎标题上，字号大且只有一个字重，所以只加载 300
+// 本地化字体，均随扩展打包，不走 CDN
+// Inter：界面文字的 Latin 部分，可变字重，一个文件覆盖全部字重
+import '@fontsource-variable/inter/wght.css'
+// Noto Serif SC（思源宋体）：只用在首页欢迎标题上，字号大且只有一个字重
 import '@fontsource/noto-serif-sc/300.css'
 
 type ChromeRuntime = { id?: string }

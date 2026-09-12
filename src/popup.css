@@ -3,7 +3,5 @@ body {
   padding: 0;
   background: transparent;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text',
-    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI',
-    'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  /* 字体不在这里声明，统一由 index.css 的 body 规则提供，避免两处漂移 */
 }
