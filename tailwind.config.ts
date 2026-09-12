@@ -86,8 +86,6 @@ export default {
 					'-apple-system', 'BlinkMacSystemFont', '"Segoe UI Variable Text"',
 					'"Segoe UI"', 'system-ui', 'sans-serif',
 				],
-				// 衬线只留给大字号标题
-				serif: ['"Noto Serif SC"', 'Georgia', '"Times New Roman"', 'serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',

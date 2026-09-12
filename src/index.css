@@ -138,8 +138,7 @@
   }
 
   /* 界面文字：Latin 用 Inter（专为小字号 UI 设计），中文走系统字体。
-     UI 文字小而密，衬线的笔画细节在 10-12px 上只剩噪声，因此衬线只留给
-     需要它的大标题，用 Tailwind 的 font-serif 单独指定。*/
+     全站统一这一套，不再混用衬线。*/
   body {
     @apply bg-background text-foreground;
     font-family: 'Inter Variable', 'PingFang SC', 'HarmonyOS Sans SC',
