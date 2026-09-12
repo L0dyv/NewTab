@@ -494,7 +494,7 @@ const Index = () => {
               onChange={setQuery}
               onSubmit={handleSubmit}
               placeholder={isKagiSelected ? t('index.kagiPlaceholder') : t('index.placeholder')}
-              className="w-full bg-card border border-border rounded-full pl-11 pr-24 py-3.5 text-foreground placeholder-stone-400 dark:placeholder-stone-600 focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all text-sm"
+              className="liquid-glass w-full rounded-full pl-11 pr-24 py-3.5 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all text-sm"
             />
 
             {/* 搜索按钮在输入框内 - V0 风格 */}
@@ -506,15 +506,17 @@ const Index = () => {
             </Button>
           </div>
 
-          {/* 搜索引擎选择 - V0 风格圆角标签 */}
-          <div className="flex items-center justify-center gap-2 mt-6 flex-wrap">
+          {/* 搜索引擎选择：做成一条分段控件，选中项是抬起的浅色药丸，
+              而不是原来的纯黑实心块，以免在整页玻璃质感里显得突兀 */}
+          <div className="mt-5 flex justify-center">
+            <div className="liquid-glass inline-flex flex-wrap items-center justify-center gap-0.5 rounded-full p-1">
             {searchEngines.filter(e => e.enabled !== false).map((engine, index) => (
               <button
                 key={engine.id}
                 type="button"
-                className={`relative inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-stone-600 dark:text-stone-400 hover:bg-accent hover:text-foreground bg-transparent"
+                className={`relative inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground bg-transparent"
                   }`}
                 onClick={() => handleSearchEngineChange(engine.id)}
                 onMouseDown={(e) => e.preventDefault()}
@@ -527,10 +529,11 @@ const Index = () => {
                 )}
                 {engine.name}
                 {engine.isAI && (
-                  <span className="ml-1 text-xs bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1.5 py-0.5 rounded">AI</span>
+                  <span className="rounded bg-foreground/10 px-1 py-0.5 text-[10px] leading-none text-foreground/70">AI</span>
                 )}
               </button>
             ))}
+            </div>
           </div>
         </div>
 
