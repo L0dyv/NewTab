@@ -440,8 +440,7 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="h-screen bg-background flex flex-col items-center p-4 transition-colors overflow-hidden">
-      <div className="flex-shrink-0 h-12 md:h-[16vh] md:max-h-[220px]" aria-hidden="true" />
+    <div className="h-screen bg-background flex flex-col items-center justify-center p-4 transition-colors overflow-hidden">
 
       {/* 右上角工具栏：底部整条留给 Dock，所以这些入口都收到顶部 */}
       <div className="absolute top-4 right-4 flex items-center gap-1">
@@ -475,8 +474,8 @@ const Index = () => {
         </Button>
       </div>
 
-      {/* 主搜索区域 */}
-      <div className="w-full max-w-2xl mx-auto flex flex-col items-center flex-1 min-h-0">
+      {/* 主搜索区域：Dock 是 fixed 定位不占流，这里直接在视口里居中 */}
+      <div className="w-full max-w-2xl mx-auto flex flex-col items-center">
         {/* 欢迎标题区域 - V0 风格 */}
         <div className="text-center mb-12">
           <p className="text-xs text-muted-foreground font-light mb-3 tracking-wider">
@@ -492,8 +491,8 @@ const Index = () => {
           <p className="text-sm text-muted-foreground">{t('index.whatToDo')}</p>
         </div>
 
-        {/* V0 风格搜索栏 */}
-        <div className="w-full mb-12">
+        {/* V0 风格搜索栏。末尾不留下边距，否则会被算进居中高度，视觉中心上移 */}
+        <div className="w-full">
           <div className="relative group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400 dark:text-stone-600 pointer-events-none" />
             <AutoComplete
