@@ -10,8 +10,9 @@ import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 /** 超过这个数量就从扇形切到网格，和 macOS 的堆栈一样 */
 export const FAN_MAX_ITEMS = 8;
 
-/** 扇形里图标的边长，DockBar 计算锚点时要用同一个值 */
-export const FAN_ICON_SIZE = 36;
+/** 扇形里图标的边长，DockBar 计算锚点时要用同一个值。
+ *  favicon 多半是 16 或 32px 的位图，画得比源图大就会糊，所以压在 28。*/
+export const FAN_ICON_SIZE = 28;
 
 interface GroupStackProps extends LinkActions {
   group: QuickLinkGroup | null;
@@ -137,7 +138,7 @@ export default function GroupStack({
               key={link.id}
               link={link}
               groups={groups}
-              iconSize={34}
+              iconSize={28}
               onCopy={onCopy}
               onMoveToGroup={onMoveToGroup}
               onRemove={onRemove}

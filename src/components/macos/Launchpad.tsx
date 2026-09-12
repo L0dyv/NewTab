@@ -98,8 +98,10 @@ export default function Launchpad({
       className="liquid-glass-scrim animate-launchpad-in fixed inset-0 z-40 flex flex-col"
       onWheel={handleWheel}
       onMouseDown={(e) => {
-        // 只有点在空白处才关闭，点到链接或输入框不关
-        if (e.target === e.currentTarget) onClose();
+        // 启动台盖在桌面上，点空白处就退回去。判断"是否点在可交互元素上"，
+        // 而不是只认最外层节点——后者会让内容区的空白区域点了没反应。
+        const target = e.target as HTMLElement;
+        if (!target.closest("a, button, input, [role='menuitem']")) onClose();
       }}
     >
       {/* 筛选框：只在 Launchpad 全屏态存在，不会和首页搜索栏同时出现 */}
@@ -137,7 +139,7 @@ export default function Launchpad({
             {query ? t("dock.noMatches") : t("dock.noLinks")}
           </p>
         ) : (
-          <div className="w-full max-w-5xl space-y-6 overflow-y-auto scrollbar-hide">
+          <div className="animate-launchpad-grid w-full max-w-5xl space-y-6 overflow-y-auto scrollbar-hide">
             {currentPage.map((section, index) => (
               <section key={`${section.group?.id ?? "__ungrouped__"}-${index}`}>
                 <div className="mb-2 flex items-center gap-3">
@@ -157,7 +159,7 @@ export default function Launchpad({
                       key={link.id}
                       link={link}
                       groups={groups}
-                      iconSize={42}
+                      iconSize={32}
                       onCopy={onCopy}
                       onMoveToGroup={onMoveToGroup}
                       onRemove={onRemoveLink}
