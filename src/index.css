@@ -6,9 +6,12 @@
 
 @layer base {
   :root {
-    /* ===== V0 Stone 色系（优雅中性色调）===== */
-    --background: 60 9% 98%;
-    /* stone-50 */
+    /* ===== V0 Stone 色系（优雅中性色调）=====
+       底色比 stone-50 压深一档。玻璃面板是半透明白，底色若也接近纯白，
+       两者就落在同一个亮度带里，页面、搜索框、Dock 全是一个值，既没有层次
+       也谈不上通透——macOS 的玻璃靠桌面壁纸提供明暗范围，这里由底色承担
+       同样的角色。*/
+    --background: 44 8% 93%;
     --foreground: 24 10% 10%;
     /* stone-900 */
 
@@ -262,10 +265,10 @@
      顶部一道亮的 inset 高光是经典的浮雕线索，会让内联控件看起来像凸起的
      塑料按钮而不是一层玻璃；投影同理，它等于宣称这个元素浮在页面之上。*/
   .liquid-glass {
-    background: rgba(255, 255, 255, 0.52);
+    background: rgba(255, 255, 255, 0.58);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(120, 113, 108, 0.15);
+    border: 1px solid rgba(120, 113, 108, 0.22);
   }
 
   /* 深色下的玻璃是叠一层极低透明度的纯白，而不是叠灰：在近黑背景上叠暖灰会
@@ -284,7 +287,7 @@
      与页面同亮度是对的；浮层玻璃要前进，在浅色页面上必须比页面更亮，才读得出
      "这是盖在上面的另一张纸"。亮度与页面持平的浮层只会呈现为一层没有立场的灰雾。*/
   .liquid-glass-floating {
-    background: rgba(255, 255, 255, 0.82);
+    background: rgba(255, 255, 255, 0.9);
     box-shadow:
       0 12px 32px -10px rgba(41, 37, 36, 0.22),
       0 2px 8px -3px rgba(41, 37, 36, 0.1);
