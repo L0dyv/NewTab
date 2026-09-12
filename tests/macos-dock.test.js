@@ -159,7 +159,7 @@ const makeLinks = (n, prefix = "x") =>
   }));
 
 {
-  // 首页是"全部"，其后一个分组一页，不论它有多小
+  // 一页是全部内容的一屏：分组连续铺开，装得下就同处一页
   const pages = paginateLaunchpad(
     [
       { group: { id: "a", name: "A" }, links: makeLinks(3, "a") },
@@ -169,35 +169,38 @@ const makeLinks = (n, prefix = "x") =>
     { cols: 4, rows: 5 }
   );
 
-  assert.equal(pages.length, 4, "an overview page precedes the three group pages");
+  assert.equal(pages.length, 2, "six links across three groups need two pages of five rows");
   assert.deepEqual(
     pages.map((page) => page.map((s) => s.group.id)),
-    [["a", "b", "c"], ["a"], ["b"], ["c"]],
-    "the first page holds every group in order, then one page each"
-  );
-  assert.ok(
-    pages.slice(1).every((page) => page.length === 1),
-    "past the overview a page holds exactly one section"
+    [["a", "b"], ["c"]],
+    "groups run on until the page is full, then continue on the next"
   );
   assert.ok(
     pages.every((page) => page.every((s) => s.continued === false)),
-    "a group that fits is never marked continued"
+    "a group that is not split is never marked continued"
   );
 
-  // 总览页不受单页容量限制，装不下由渲染层滚动
-  const overview = pages[0].flatMap((s) => s.links.map((l) => l.id));
-  assert.equal(overview.length, 6, "the overview carries every link");
-  assert.equal(new Set(overview).size, 6, "the overview repeats none of them");
+  const seen = pages.flat().flatMap((s) => s.links.map((l) => l.id));
+  assert.equal(seen.length, 6, "every link is placed");
+  assert.equal(new Set(seen).size, 6, "no link is placed twice");
 }
 
 {
-  // 只有一个分组时不需要总览页——它和那一组自己的页完全相同
+  // 分组顺序必须保持，翻页读下来就是原本的排列
   const pages = paginateLaunchpad(
-    [{ group: { id: "only", name: "Only" }, links: makeLinks(3, "o") }],
+    [
+      { group: { id: "a", name: "A" }, links: makeLinks(8, "a") },
+      { group: { id: "b", name: "B" }, links: makeLinks(8, "b") },
+    ],
     { cols: 4, rows: 5 }
   );
-  assert.equal(pages.length, 1, "a single group does not get a duplicate overview");
-  assert.deepEqual(pages[0].map((s) => s.group.id), ["only"], "that page is the group itself");
+  // 一个分组跨页时会出现多次，所以合并相邻的重复项再比。要保证的是顺序不变、
+  // 且两个分组不交错，而不是每个分组只出现一次。
+  const order = pages
+    .flat()
+    .map((s) => s.group.id)
+    .filter((id, i, all) => id !== all[i - 1]);
+  assert.deepEqual(order, ["a", "b"], "sections keep their order and never interleave");
 }
 
 {

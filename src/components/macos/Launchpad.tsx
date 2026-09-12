@@ -92,22 +92,21 @@ export default function Launchpad({
   };
 
   const currentPage = pages[page] ?? [];
-  // 只有多于一个分组时才会有总览页，它是唯一装着多个区段的一页
-  const hasOverview = pages.length > 1 && (pages[0]?.length ?? 0) > 1;
 
   return (
     <div
       className="liquid-glass-scrim animate-launchpad-in fixed inset-0 z-40 flex flex-col"
       onWheel={handleWheel}
       onMouseDown={(e) => {
-        // 启动台盖在桌面上，点空白处就退回去。判断"是否点在可交互元素上"，
-        // 而不是只认最外层节点——后者会让内容区的空白区域点了没反应。
+        // 启动台盖在桌面上，点它之外的地方就退回去。"之外"指内容区以外的留白：
+        // 网格、筛选框、页码这些是启动台自己的地盘，在它们内部（包括图标之间的
+        // 空隙）点击不应该退出，否则想点图标稍微偏一点就把整个面板关掉了。
         const target = e.target as HTMLElement;
-        if (!target.closest("a, button, input, [role='menuitem']")) onClose();
+        if (!target.closest("[data-launchpad-surface], a, button, input")) onClose();
       }}
     >
       {/* 筛选框：只在 Launchpad 全屏态存在，不会和首页搜索栏同时出现 */}
-      <div className="flex flex-shrink-0 justify-center px-6 pt-16 pb-8">
+      <div data-launchpad-surface className="flex flex-shrink-0 justify-center px-6 pt-16 pb-8">
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -141,14 +140,9 @@ export default function Launchpad({
             {query ? t("dock.noMatches") : t("dock.noLinks")}
           </p>
         ) : (
-          // 分组页按容量裁好，不会溢出，滚动条藏起来更干净；"全部"这一页不受
-          // 容量限制，装不下要滚，这时就得留着滚动条——否则又是"能滚但看不出
-          // 能滚"，和刚修过的"看不出能翻页"是同一类错误。
           <div
-            className={cn(
-              "animate-launchpad-grid w-full max-w-5xl space-y-6 overflow-y-auto",
-              !(hasOverview && page === 0) && "scrollbar-hide"
-            )}
+            data-launchpad-surface
+            className="animate-launchpad-grid w-full max-w-5xl space-y-6"
           >
             {currentPage.map((section, index) => (
               <section key={`${section.group?.id ?? "__ungrouped__"}-${index}`}>
@@ -216,32 +210,24 @@ export default function Launchpad({
         </>
       )}
 
-      {/* 页码指示。首页是"全部"，用方点与后面的圆点区分开，否则它看起来只是
-          又一个分组，读不出"这一页是全部" */}
-      <div className="flex flex-shrink-0 items-center justify-center gap-2 py-8">
+      {/* 页码指示。每一页都是全部内容的一屏，没有哪页需要与其他页区分 */}
+      <div data-launchpad-surface className="flex flex-shrink-0 items-center justify-center gap-2 py-8">
         {pages.length > 1 &&
-          pages.map((_, index) => {
-            const isOverview = hasOverview && index === 0;
-            const active = index === page;
-            return (
-              <button
-                key={index}
-                type="button"
-                onClick={() => setPage(index)}
-                aria-label={
-                  isOverview ? t("dock.allPage") : `${t("dock.page")} ${index + 1}`
-                }
-                aria-current={active}
-                className={cn(
-                  "h-1.5 transition-all duration-200",
-                  isOverview ? "rounded-[2px]" : "rounded-full",
-                  active
-                    ? `${isOverview ? "w-4" : "w-5"} bg-foreground/70`
-                    : "w-1.5 bg-foreground/25 hover:bg-foreground/45"
-                )}
-              />
-            );
-          })}
+          pages.map((_, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => setPage(index)}
+              aria-label={`${t("dock.page")} ${index + 1}`}
+              aria-current={index === page}
+              className={cn(
+                "h-1.5 rounded-full transition-all duration-200",
+                index === page
+                  ? "w-5 bg-foreground/70"
+                  : "w-1.5 bg-foreground/25 hover:bg-foreground/45"
+              )}
+            />
+          ))}
       </div>
 
       <button

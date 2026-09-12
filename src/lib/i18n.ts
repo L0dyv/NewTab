@@ -197,7 +197,6 @@ const messages: Record<Locale, Record<string, string>> = {
         'dock.noLinks': '还没有快速链接',
         'dock.continued': '(续)',
         'dock.page': '第',
-        'dock.allPage': '全部',
     },
     'en': {
         // Common
@@ -389,7 +388,6 @@ const messages: Record<Locale, Record<string, string>> = {
         'dock.noLinks': 'No quick links yet',
         'dock.continued': '(cont.)',
         'dock.page': 'Page',
-        'dock.allPage': 'All',
     },
 };
 

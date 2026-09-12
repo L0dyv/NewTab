@@ -113,12 +113,13 @@ export function filterSections(sections, query) {
 /**
  * 把区段铺进 Launchpad 的分页网格。
  *
- * 一个分组占满一页。让多个分组挤在同一页上，等于分页和分组两套划分同时存在
- * 却互不对齐，翻页就失去了含义；一组一页之后，翻页就是"换一个分组"。
- * 单个分组超过一页容量时才拆开，续页标记 continued，由渲染层决定是否弱化
- * 重复出现的标题。
+ * 一页就是"全部内容的一屏"，与分组无关：按分组顺序连续铺开，装满一页就换下
+ * 一页，分组之间由渲染层画分割线。这里不再一组一页——那样"页"会同时表示
+ * 一个分组和一屏内容，页码点两件事都说不清；分组入口由 Dock 的堆栈承担。
  *
- * 每页留一行给分组标题，其余行放链接。
+ * 每个区段占一行标题加 ceil(链接数 / cols) 行内容。当前页剩余行数放不下时
+ * 换页；单个区段大于整页容量时拆开，续页标记 continued，由渲染层决定是否
+ * 弱化重复出现的标题。
  *
  * @param {Array<{ group: object|null, links: Array }>} sections
  * @param {{ cols: number, rows: number }} layout
@@ -127,33 +128,44 @@ export function filterSections(sections, query) {
 export function paginateLaunchpad(sections, layout) {
   const cols = Math.max(1, Math.floor(layout?.cols || 1));
   const rows = Math.max(2, Math.floor(layout?.rows || 2));
-  const capacity = Math.max(1, (rows - 1) * cols);
 
-  const filled = (sections || []).filter((s) => s.links && s.links.length > 0);
   const pages = [];
+  let current = [];
+  let rowsUsed = 0;
 
-  // 第一页是"全部"：按分组顺序铺开，各组之间由渲染层画分割线。它不受单页容量
-  // 限制，装不下就纵向滚动——分页在这里的含义是"换一个分组"，不该把"全部"
-  // 也切成几段。只有一个分组时这一页与该组自己那页完全相同，就不必再加。
-  if (filled.length > 1) {
-    pages.push(
-      filled.map((s) => ({ group: s.group, links: s.links, continued: false }))
-    );
-  }
+  const flush = () => {
+    if (current.length > 0) {
+      pages.push(current);
+      current = [];
+      rowsUsed = 0;
+    }
+  };
 
-  for (const section of filled) {
+  for (const section of sections || []) {
+    if (!section.links || section.links.length === 0) continue;
+
     let remaining = section.links;
     let continued = false;
 
     while (remaining.length > 0) {
-      pages.push([
-        { group: section.group, links: remaining.slice(0, capacity), continued },
-      ]);
-      remaining = remaining.slice(capacity);
-      continued = true;
+      // 一个区段至少要放下标题行加一行内容，否则先换页
+      if (rows - rowsUsed < 2) flush();
+
+      const capacity = (rows - rowsUsed - 1) * cols;
+      const take = Math.min(remaining.length, capacity);
+
+      current.push({ group: section.group, links: remaining.slice(0, take), continued });
+      rowsUsed += 1 + Math.ceil(take / cols);
+      remaining = remaining.slice(take);
+
+      if (remaining.length > 0) {
+        continued = true;
+        flush();
+      }
     }
   }
 
+  flush();
   return pages;
 }
 
