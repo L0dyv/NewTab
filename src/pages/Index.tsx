@@ -533,13 +533,15 @@ const Index = () => {
                 onClick={() => handleSearchEngineChange(engine.id)}
                 onMouseDown={(e) => e.preventDefault()}
               >
-                {/* 快捷键数字提示 */}
+                {engine.name}
+                {/* 快捷键提示。原本是浮在外面的实心黑圆点，在一整页玻璃里显得
+                    很突兀；macOS 的菜单是把快捷键作为一行淡色文字排在名称之后，
+                    这里照此处理。*/}
                 {showShortcutHints && index < 9 && (
-                  <span className="absolute -top-2 -right-1 flex items-center justify-center w-4 h-4 text-[10px] font-bold rounded-full bg-primary text-primary-foreground shadow-sm animate-in fade-in zoom-in-50 duration-150">
+                  <span className="ml-0.5 text-[11px] font-normal tabular-nums text-muted-foreground/70 animate-in fade-in duration-150">
                     {index + 1}
                   </span>
                 )}
-                {engine.name}
                 {engine.isAI && (
                   <span className="rounded bg-foreground/10 px-1 py-0.5 text-[10px] leading-none text-foreground/70">AI</span>
                 )}

@@ -450,13 +450,13 @@ export default function Popup() {
                                 onClick={() => handleSearchEngineChange(engine.id)}
                                 onMouseDown={(e) => e.preventDefault()}
                             >
-                                {/* 快捷键数字提示 */}
+                                {engine.name}
+                                {/* 与首页一致：快捷键作为名称后的一个淡号码，不做成浮标 */}
                                 {showShortcutHints && index < 9 && (
-                                    <span className="absolute -top-1.5 -right-0.5 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-primary text-primary-foreground shadow-sm animate-in fade-in zoom-in-50 duration-150">
+                                    <span className="ml-0.5 text-[10px] font-normal tabular-nums text-muted-foreground/70 animate-in fade-in duration-150">
                                         {index + 1}
                                     </span>
                                 )}
-                                {engine.name}
                                 {engine.isAI && (
                                     <span className="rounded bg-foreground/10 px-1 py-0.5 text-[10px] leading-none text-foreground/70">AI</span>
                                 )}
@@ -501,7 +501,7 @@ export default function Popup() {
                                     onChange={(e) => handlePopupOpenInNewTabChange(e.target.checked)}
                                     className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+                                <div className="w-9 h-5 bg-black/[0.12] dark:bg-white/[0.18] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/10 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-foreground/70"></div>
                             </label>
                         </div>
                         <Button
