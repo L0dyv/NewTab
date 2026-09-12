@@ -96,8 +96,15 @@ export default function Launchpad({
   // 单元格 7.5rem 宽、间距 gap-1，与下面 LinkTile 的类名保持一致
   const CELL = 120;
   const GAP = 4;
-  // 盒子高度按整页容量固定，与分页用的是同一套行数
-  const pageBoxHeight = layout.rows * 104;
+  // 盒子的下限高度，按内容真实的高度计价。分页用的行数模型把 34px 的标题也
+  // 按一整行计价，若直接拿它乘行高，盒子会比任何一页的实际内容高出四成，底部
+  // 那截死空间把可见内容整体顶到视口上方——看起来就是"整体偏高"。
+  // 一个分组约 102px（标题加一行图标），组间 24px；满页约放 rows / 2 个分组。
+  const SECTION_H = 102;
+  const SECTION_GAP = 24;
+  const fullPageSections = Math.max(1, Math.floor(layout.rows / 2));
+  const pageBoxMinHeight =
+    fullPageSections * SECTION_H + (fullPageSections - 1) * SECTION_GAP;
   const sectionWidth = (count: number) => {
     const n = Math.max(1, Math.min(layout.cols, count));
     return n * CELL + (n - 1) * GAP;
@@ -115,9 +122,10 @@ export default function Launchpad({
         if (!target.closest("[data-launchpad-surface], a, button, input")) onClose();
       }}
     >
-      {/* 筛选框：只在 Launchpad 全屏态存在，不会和首页搜索栏同时出现。
-          上方留足距离——贴着屏幕顶边会把整套内容压向上半部 */}
-      <div data-launchpad-surface className="flex flex-shrink-0 justify-center px-6 pt-24 pb-10">
+      {/* 筛选框与网格算作同一块，一起在视口里居中。把筛选框钉在顶部、只让网格
+          在剩余空间里居中的话，两者之间会裂开一大片空白，也就不成其为一块。*/}
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-14 px-10">
+      <div data-launchpad-surface className="flex w-full justify-center">
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -144,10 +152,10 @@ export default function Launchpad({
         </div>
       </div>
 
-      {/* 网格盒子的高度固定为整页容量，盒子在可用区域里居中，内容在盒子内从
-          顶部起排——这正是启动台的做法。居中的是盒子而不是内容：内容居中的话，
-          装不满的一页会整块飘到中间，每页第一行也就落在不同高度，翻页时跳动。*/}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-10">
+      {/* 网格盒子有下限高度，内容在盒子内从顶部起排——这正是启动台的做法。
+          装不满的一页是盒子下半部留空，而不是内容整块飘到中间；每页第一行因此
+          都落在同一高度，翻页不跳。*/}
+      <div className="flex w-full justify-center">
         {currentPage.length === 0 ? (
           <p className="text-sm text-muted-foreground select-none">
             {query ? t("dock.noMatches") : t("dock.noLinks")}
@@ -156,7 +164,8 @@ export default function Launchpad({
           <div
             data-launchpad-surface
             className="animate-launchpad-grid w-full max-w-5xl space-y-6"
-            style={{ height: pageBoxHeight }}
+            // 用下限而不是固定高度：内容更高时盒子跟着长，不会溢出
+            style={{ minHeight: pageBoxMinHeight }}
           >
             {/* 每个分组自成一块：宽度取"列数"与"本组数量"的较小值，于是分割线
                 与下方图标等宽。让它横贯整个容器的话，图标只占中间一段、两端各
@@ -198,6 +207,7 @@ export default function Launchpad({
             ))}
           </div>
         )}
+      </div>
       </div>
 
       {/* 左右翻页。macOS 的启动台只有底部圆点，靠触控板双指滑动翻页；网页上
