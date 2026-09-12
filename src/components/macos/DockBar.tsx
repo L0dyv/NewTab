@@ -19,6 +19,7 @@ import { dockMagnification } from "@/lib/macosDock";
 import { reorderQuickLinkGroups, sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import { cn } from "@/lib/utils";
 import DockGroupItem from "./DockGroupItem";
+import DockTooltip from "./DockTooltip";
 import GroupStack from "./GroupStack";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
@@ -91,6 +92,7 @@ export default function DockBar({
   const [anchorX, setAnchorX] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
 
   const sortedGroups = useMemo(() => sortQuickLinkGroups(groups), [groups]);
@@ -395,7 +397,7 @@ export default function DockBar({
       )}
 
       <div
-        className="liquid-glass flex items-end gap-1 rounded-[22px] px-3 py-2"
+        className="liquid-glass flex items-end gap-1.5 rounded-[26px] px-2.5 py-2"
         onMouseMove={handlePointerMove}
         onMouseEnter={handleDockEnter}
       >
@@ -420,7 +422,7 @@ export default function DockBar({
           onDragCancel={() => suppressMagnification(false)}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-end gap-1">
+            <div className="flex items-end gap-1.5">
               {sortedGroups.map((group) => {
                 const section = sections.find((s) => s.group?.id === group.id);
                 return (
@@ -443,55 +445,20 @@ export default function DockBar({
           </SortableContext>
         </DndContext>
 
-        {/* 分隔线，对应 macOS Dock 里应用区与其他项之间的那道分隔 */}
-        <div className="mx-1 mb-4 h-10 w-px self-center bg-foreground/15" />
+        {/* 分隔线只在左侧确实有分组时才画，否则会孤零零挂在 Dock 开头 */}
+        {(ungroupedCount > 0 || sortedGroups.length > 0) && (
+          <div className="mx-1.5 h-12 w-px self-center bg-foreground/15" />
+        )}
 
         {/* 新建分组 */}
-        <div ref={nextRef("__add__")} className="flex-shrink-0">
-          <div className="dock-item flex w-16 flex-col items-center gap-1">
-            {isAdding ? (
-              <div className="flex h-12 w-12 items-center justify-center gap-0.5 rounded-[14px] border border-dashed border-border">
-                <button
-                  type="button"
-                  onClick={commitAddGroup}
-                  disabled={!newGroupName.trim()}
-                  className="rounded p-0.5 text-foreground/70 hover:text-foreground disabled:opacity-30"
-                  title={t("common.confirm")}
-                >
-                  <Check className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={cancelAddGroup}
-                  className="rounded p-0.5 text-foreground/70 hover:text-foreground"
-                  title={t("common.cancel")}
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                title={t("quickLinks.newGroup")}
-                aria-label={t("quickLinks.newGroup")}
-                onClick={() => {
-                  clearTimers();
-                  closeStack();
-                  setIsAdding(true);
-                  suppressMagnification(true);
-                }}
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-[14px]",
-                  "border border-dashed border-border text-muted-foreground/70",
-                  "hover:border-foreground/40 hover:text-foreground",
-                  "outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                )}
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            )}
-
-            {isAdding ? (
+        <div
+          ref={nextRef("__add__")}
+          className="relative flex-shrink-0"
+          onMouseEnter={() => setHoveredSlot("__add__")}
+          onMouseLeave={() => setHoveredSlot(null)}
+        >
+          {isAdding ? (
+            <div className="absolute bottom-full left-1/2 z-30 mb-8 -translate-x-1/2">
               <input
                 ref={addInputRef}
                 value={newGroupName}
@@ -501,23 +468,70 @@ export default function DockBar({
                   if (e.key === "Escape") cancelAddGroup();
                 }}
                 placeholder={t("quickLinks.groupNamePlaceholder")}
-                className="w-[74px] rounded-md border border-border bg-card px-1 py-0.5 text-center text-[10px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+                className="liquid-glass w-32 rounded-lg px-2 py-1 text-center text-[11px] leading-none text-foreground outline-none focus:ring-1 focus:ring-ring"
               />
+            </div>
+          ) : (
+            <DockTooltip label={t("quickLinks.newGroup")} visible={hoveredSlot === "__add__"} />
+          )}
+
+          <div className="dock-item flex flex-col items-center gap-1.5">
+            {isAdding ? (
+              <div className="flex h-14 w-14 items-center justify-center gap-1 rounded-[16px] border border-dashed border-border">
+                <button
+                  type="button"
+                  onClick={commitAddGroup}
+                  disabled={!newGroupName.trim()}
+                  className="rounded p-0.5 text-foreground/70 hover:text-foreground disabled:opacity-30"
+                  aria-label={t("common.confirm")}
+                >
+                  <Check className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelAddGroup}
+                  className="rounded p-0.5 text-foreground/70 hover:text-foreground"
+                  aria-label={t("common.cancel")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             ) : (
-              <span className="max-w-full truncate text-[10px] leading-none text-foreground/70 select-none">
-                {t("quickLinks.newGroup")}
-              </span>
+              <button
+                type="button"
+                aria-label={t("quickLinks.newGroup")}
+                onClick={() => {
+                  clearTimers();
+                  closeStack();
+                  setIsAdding(true);
+                  suppressMagnification(true);
+                }}
+                className={cn(
+                  "flex h-14 w-14 items-center justify-center rounded-[16px]",
+                  "border border-dashed border-border text-muted-foreground/70",
+                  "hover:border-foreground/40 hover:text-foreground",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+              >
+                <Plus className="h-5 w-5" />
+              </button>
             )}
             <span className="h-1 w-1" />
           </div>
         </div>
 
         {/* 全部展示 */}
-        <div ref={nextRef("__launchpad__")} className="flex-shrink-0">
-          <div className="dock-item flex w-16 flex-col items-center gap-1">
+        <div
+          ref={nextRef("__launchpad__")}
+          className="relative flex-shrink-0"
+          onMouseEnter={() => setHoveredSlot("__launchpad__")}
+          onMouseLeave={() => setHoveredSlot(null)}
+        >
+          <DockTooltip label={t("dock.showAll")} visible={hoveredSlot === "__launchpad__"} />
+
+          <div className="dock-item flex flex-col items-center gap-1.5">
             <button
               type="button"
-              title={t("dock.showAll")}
               aria-label={t("dock.showAll")}
               onClick={() => {
                 clearTimers();
@@ -526,16 +540,13 @@ export default function DockBar({
               }}
               onMouseEnter={() => clearTimers()}
               className={cn(
-                "liquid-glass flex h-12 w-12 items-center justify-center rounded-[14px]",
+                "liquid-glass flex h-14 w-14 items-center justify-center rounded-[16px]",
                 "text-foreground/75 hover:text-foreground",
                 "outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
             >
-              <LayoutGrid className="h-5 w-5" strokeWidth={1.75} />
+              <LayoutGrid className="h-6 w-6" strokeWidth={1.75} />
             </button>
-            <span className="max-w-full truncate text-[10px] leading-none text-foreground/70 select-none">
-              {t("dock.showAll")}
-            </span>
             <span className="h-1 w-1" />
           </div>
         </div>

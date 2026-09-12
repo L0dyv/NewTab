@@ -12,6 +12,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { cn } from "@/lib/utils";
 import GroupTile from "./GroupTile";
+import DockTooltip from "./DockTooltip";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 export interface DockGroupItemProps {
@@ -33,6 +34,7 @@ export interface DockGroupItemProps {
  *
  * 外层节点承载 dnd-kit 的拖拽位移，内层 .dock-item 承载指针放大，
  * 两个 transform 分开写在不同元素上，否则会互相覆盖。
+ * 名称不常驻，只在悬停时以气泡弹出，与 macOS Dock 一致。
  */
 export default function DockGroupItem({
   group,
@@ -47,6 +49,7 @@ export default function DockGroupItem({
   onEditingChange,
 }: DockGroupItemProps) {
   const { t } = useI18n();
+  const [hovered, setHovered] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -97,25 +100,15 @@ export default function DockGroupItem({
         transition,
         zIndex: isDragging ? 30 : undefined,
       }}
-      className={cn("flex-shrink-0", isDragging && "opacity-80")}
+      className={cn("relative flex-shrink-0", isDragging && "opacity-80")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       {...attributes}
       {...listeners}
     >
-      <div className="dock-item flex w-16 flex-col items-center gap-1">
-        <button
-          type="button"
-          title={label}
-          aria-label={label}
-          aria-expanded={isOpen}
-          onClick={onActivate}
-          onMouseEnter={onHover}
-          onFocus={onHover}
-          className="rounded-[14px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <GroupTile links={links} size={48} />
-        </button>
-
-        {isRenaming ? (
+      {/* 堆栈展开后面板标题里已经有分组名，气泡就不再重复 */}
+      {isRenaming ? (
+        <div className="absolute bottom-full left-1/2 z-30 mb-8 -translate-x-1/2">
           <input
             ref={inputRef}
             value={draftName}
@@ -126,13 +119,30 @@ export default function DockGroupItem({
               if (e.key === "Escape") setIsRenaming(false);
             }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="w-[74px] rounded-md border border-border bg-card px-1 py-0.5 text-center text-[10px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+            className="liquid-glass w-28 rounded-lg px-2 py-1 text-center text-[11px] leading-none text-foreground outline-none focus:ring-1 focus:ring-ring"
           />
-        ) : (
-          <span className="max-w-full truncate text-[10px] leading-none text-foreground/70 select-none">
-            {label}
-          </span>
-        )}
+        </div>
+      ) : (
+        <DockTooltip label={label} visible={hovered && !isDragging && !isOpen} />
+      )}
+
+      <div className="dock-item flex flex-col items-center gap-1.5">
+        <button
+          type="button"
+          title=""
+          aria-label={label}
+          aria-expanded={isOpen}
+          onClick={onActivate}
+          onMouseEnter={onHover}
+          onFocus={() => {
+            setHovered(true);
+            onHover();
+          }}
+          onBlur={() => setHovered(false)}
+          className="rounded-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <GroupTile links={links} size={56} />
+        </button>
 
         {/* 展开状态指示点，对应 macOS Dock 上已打开应用的圆点 */}
         <span
