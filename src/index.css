@@ -44,6 +44,15 @@
 
     --radius: 0.625rem;
 
+    /* 玻璃底面的色调起伏。backdrop-filter 处理的是元素背后的像素，底面若是
+       绝对纯色，模糊出来仍是同一个色块，玻璃就完全读不出来——macOS 上 Dock
+       背后永远有壁纸，那是这套材质成立的前提。这里不做成可见的渐变设计，
+       只做到"底面不是平的"，让模糊有东西可以平均。*/
+    --ambient-tints:
+      radial-gradient(55rem 38rem at 12% -8%, rgba(120, 113, 108, 0.1), transparent 62%),
+      radial-gradient(48rem 34rem at 88% 6%, rgba(168, 162, 158, 0.13), transparent 60%),
+      radial-gradient(65rem 42rem at 50% 108%, rgba(120, 113, 108, 0.09), transparent 62%);
+
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
     --sidebar-primary: 24 10% 10%;
@@ -98,6 +107,11 @@
     --sidebar-accent-foreground: 60 9% 98%;
     --sidebar-border: 24 6% 20%;
     --sidebar-ring: 24 6% 22%;
+
+    --ambient-tints:
+      radial-gradient(55rem 38rem at 12% -8%, rgba(255, 255, 255, 0.055), transparent 62%),
+      radial-gradient(48rem 34rem at 88% 6%, rgba(255, 255, 255, 0.04), transparent 60%),
+      radial-gradient(65rem 42rem at 50% 108%, rgba(255, 255, 255, 0.045), transparent 62%);
   }
 }
 
@@ -148,22 +162,9 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 
-    /* 背景留一点色调起伏。backdrop-filter 处理的是元素背后的像素，背景若是
-       绝对纯色，模糊出来仍是同一个色块，玻璃就完全读不出来——macOS 上 Dock
-       背后永远有壁纸，这是那套材质成立的前提。这里不做成可见的渐变设计，
-       只做到"背景不是平的"，让模糊有东西可以平均。*/
-    background-image:
-      radial-gradient(55rem 38rem at 12% -8%, rgba(120, 113, 108, 0.1), transparent 62%),
-      radial-gradient(48rem 34rem at 88% 6%, rgba(168, 162, 158, 0.13), transparent 60%),
-      radial-gradient(65rem 42rem at 50% 108%, rgba(120, 113, 108, 0.09), transparent 62%);
+    /* 首页的玻璃底面，fixed 让色块不随内容滚动 */
+    background-image: var(--ambient-tints);
     background-attachment: fixed;
-  }
-
-  .dark body {
-    background-image:
-      radial-gradient(55rem 38rem at 12% -8%, rgba(255, 255, 255, 0.055), transparent 62%),
-      radial-gradient(48rem 34rem at 88% 6%, rgba(255, 255, 255, 0.04), transparent 60%),
-      radial-gradient(65rem 42rem at 50% 108%, rgba(255, 255, 255, 0.045), transparent 62%);
   }
 }
 
@@ -249,6 +250,12 @@
    光线在玻璃上边缘的折射，底沿一道暗边收口，外层扩散阴影把面板从背景
    上抬起来。*/
 @layer components {
+
+  /* 承载玻璃的底面，首页用在 body 上，Popup 用在窗口容器上。
+     渐变本身定义在 --ambient-tints 上，两处共用一份。*/
+  .ambient-surface {
+    background-image: var(--ambient-tints);
+  }
 
   /* 基础态：平贴在页面里的玻璃。
      只靠半透明、模糊和一道中性细边来读出"玻璃"，不加投影，也不加顶部高光。
