@@ -42,7 +42,7 @@ const CustomDialogContent = React.forwardRef<
             <button
                 onClick={onClose}
                 type="button"
-                className="absolute -top-4 -right-4 z-[100] rounded-full bg-background text-foreground p-2.5 shadow-xl border border-border hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-colors"
+                className="liquid-glass liquid-glass-floating absolute -top-4 -right-4 z-[100] rounded-full p-2.5 text-foreground hover:text-foreground/70 focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
                 aria-label={t('common.close')}
             >
                 <X className="h-5 w-5" />
@@ -50,7 +50,7 @@ const CustomDialogContent = React.forwardRef<
             <VisuallyHidden.Root asChild>
                 <DialogDescription>{t('settings.dialog')}</DialogDescription>
             </VisuallyHidden.Root>
-            <div className="max-h-[90vh] rounded-lg overflow-hidden border border-border bg-background shadow-lg">
+            <div className="liquid-glass liquid-glass-floating max-h-[90vh] overflow-hidden rounded-2xl">
                 {children}
             </div>
         </DialogPrimitive.Content>
@@ -84,7 +84,7 @@ export default function SettingsModal({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <CustomDialogContent onClose={handleClose}>
-                <DialogHeader className="bg-background px-6 py-4 border-b">
+                <DialogHeader className="border-b border-foreground/10 px-6 py-4">
                     <DialogTitle className="text-lg font-semibold">
                         {title}
                     </DialogTitle>
