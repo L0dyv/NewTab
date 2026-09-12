@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Settings, Settings2, Search, Puzzle, Copy, Trash2, FolderInput } from "lucide-react";
+import { Settings, Settings2, Search, Puzzle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AutoComplete from "@/components/AutoComplete";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -7,38 +7,21 @@ import SettingsModal from "@/components/SettingsModal";
 import UnifiedSettings from "@/components/UnifiedSettings";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, setStoredValue, migrateLocalStorageToSync } from "@/lib/storage";
-import { sortQuickLinkGroups } from "@/lib/quickLinkGroups";
+import { deleteQuickLinkGroup, renameQuickLinkGroup } from "@/lib/quickLinkGroups";
+import { buildDockSections } from "@/lib/macosDock";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
-import QuickLinkIcon from "@/components/QuickLinkIcon";
-import HomepageGroupFilter from "@/components/HomepageGroupFilter";
+import DockBar from "@/components/macos/DockBar";
+import Launchpad from "@/components/macos/Launchpad";
 import { useI18n } from "@/hooks/useI18n";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuSub,
-  ContextMenuSubContent,
-  ContextMenuSubTrigger,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
 
 const Index = () => {
   const { t, locale } = useI18n();
   const [query, setQuery] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
-
-  // 首页分组 tab 过滤状态（纯本地 UI 偏好）
-  const [activeHomeTab, setActiveHomeTab] = useState(() => {
-    try {
-      return localStorage.getItem('homeActiveTab') || 'all';
-    } catch {
-      return 'all';
-    }
-  });
+  const [showLaunchpad, setShowLaunchpad] = useState(false);
 
   const readOpenSearchInNewTab = () => {
     try {
@@ -224,20 +207,6 @@ const Index = () => {
     setStoredValue('currentSearchEngine', searchEngine);
   }, [searchEngine]);
 
-  // 持久化 homeActiveTab
-  useEffect(() => {
-    try {
-      localStorage.setItem('homeActiveTab', activeHomeTab);
-    } catch { /* ignore */ }
-  }, [activeHomeTab]);
-
-  // 选中的分组被删除时回退到 'all'
-  useEffect(() => {
-    if (activeHomeTab !== 'all' && !quickLinkGroups.some(g => g.id === activeHomeTab)) {
-      setActiveHomeTab('all');
-    }
-  }, [activeHomeTab, quickLinkGroups]);
-
   // 判断是否为URL
   const isURL = (text: string) => {
     // 不能包含空格
@@ -364,33 +333,39 @@ const Index = () => {
     }
   };
 
-  // 将链接按分组组织
-  const groupedLinks = useMemo(() => {
-    const enabledLinks = quickLinks.filter(l => l.enabled === true);
-    const sortedGroups = sortQuickLinkGroups(quickLinkGroups);
-    const ungrouped = enabledLinks.filter(l => !l.groupId);
-    const result: { group: QuickLinkGroup | null; links: QuickLink[] }[] = [];
-    if (ungrouped.length > 0) result.push({ group: null, links: ungrouped });
-    for (const g of sortedGroups) {
-      const gl = enabledLinks.filter(l => l.groupId === g.id);
-      if (gl.length > 0) result.push({ group: g, links: gl });
-    }
-    return result;
-  }, [quickLinks, quickLinkGroups]);
+  // Dock 用的分组区段：未分组在前，其余按 order 排列，空分组保留（Dock 要显示它）
+  const dockSections = useMemo(
+    () => buildDockSections(quickLinks, quickLinkGroups),
+    [quickLinks, quickLinkGroups]
+  );
 
-  // 按首页 tab 过滤分组数据
-  const filteredGroupedLinks = useMemo(() => {
-    if (activeHomeTab === 'all') return groupedLinks;
-    return groupedLinks.filter(({ group }) => group?.id === activeHomeTab);
-  }, [groupedLinks, activeHomeTab]);
-
-  const hasAnyGroup = quickLinkGroups.length > 0;
+  // Launchpad 不展示空分组，否则整屏会出现一堆没有内容的标题
+  const launchpadSections = useMemo(
+    () => buildDockSections(quickLinks, quickLinkGroups, { keepEmpty: false }),
+    [quickLinks, quickLinkGroups]
+  );
 
   // 移动链接到分组
   const moveToGroup = (linkId: string, groupId: string | undefined) => {
     setQuickLinks(links => links.map(link =>
       link.id === linkId ? { ...link, groupId } : link
     ));
+  };
+
+  const addGroup = (name: string) => {
+    const maxOrder = quickLinkGroups.reduce((max, g) => Math.max(max, g.order), -1);
+    setQuickLinkGroups([...quickLinkGroups, { id: `group-${Date.now()}`, name, order: maxOrder + 1 }]);
+  };
+
+  const renameGroup = (groupId: string, name: string) => {
+    setQuickLinkGroups(groups => renameQuickLinkGroup(groups, groupId, name));
+  };
+
+  // 删除分组时组内链接回到"未分组"，不会连带丢失
+  const deleteGroup = (groupId: string) => {
+    const next = deleteQuickLinkGroup(quickLinkGroups, quickLinks, groupId);
+    setQuickLinkGroups(next.groups);
+    setQuickLinks(next.links);
   };
 
   useEffect(() => {
@@ -466,16 +441,35 @@ const Index = () => {
 
   return (
     <div className="h-screen bg-background flex flex-col items-center p-4 transition-colors overflow-hidden">
-      <div className="flex-shrink-0 h-12 md:h-[18vh] md:max-h-[260px]" aria-hidden="true" />
+      <div className="flex-shrink-0 h-12 md:h-[16vh] md:max-h-[220px]" aria-hidden="true" />
 
-      {/* 设置和主题切换按钮 */}
-      <div className="absolute top-4 right-4 flex items-center gap-2">
+      {/* 右上角工具栏：底部整条留给 Dock，所以这些入口都收到顶部 */}
+      <div className="absolute top-4 right-4 flex items-center gap-1">
         <ThemeToggle />
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleOpenBrowserSettings}
+          className="text-muted-foreground/60 hover:text-foreground"
+          title={t('index.openBrowserSettings')}
+        >
+          <Settings2 className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleOpenExtensions}
+          className="text-muted-foreground/60 hover:text-foreground"
+          title={t('index.openExtensions')}
+        >
+          <Puzzle className="h-5 w-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => setShowSettings(true)}
           className="text-muted-foreground hover:text-foreground"
+          title={t('index.openSettings')}
         >
           <Settings className="h-5 w-5" />
         </Button>
@@ -547,129 +541,35 @@ const Index = () => {
           </div>
         </div>
 
-        {/* 首页分组 tab 过滤栏 */}
-        <HomepageGroupFilter
+      </div>
+
+      {/* 底部 Dock：取代原来的顶部分组 Tab */}
+      <div className="fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
+        <DockBar
+          sections={dockSections}
           groups={quickLinkGroups}
-          activeTab={activeHomeTab}
-          onTabChange={setActiveHomeTab}
           onGroupsChange={setQuickLinkGroups}
-          onAddGroup={(name) => {
-            const maxOrder = quickLinkGroups.reduce((max, g) => Math.max(max, g.order), -1);
-            const newGroup = { id: `group-${Date.now()}`, name, order: maxOrder + 1 };
-            setQuickLinkGroups([...quickLinkGroups, newGroup]);
-          }}
+          onAddGroup={addGroup}
+          onRenameGroup={renameGroup}
+          onDeleteGroup={deleteGroup}
+          onOpenLaunchpad={() => setShowLaunchpad(true)}
+          onCopy={copyToClipboard}
+          onMoveToGroup={moveToGroup}
+          onRemoveLink={confirmRemoveQuickLink}
         />
-
-        {/* 快速链接区域 - 分组渲染（V0 风格）*/}
-        {filteredGroupedLinks.length > 0 && (
-          <div className="w-full flex-1 min-h-0 overflow-y-auto scrollbar-hide">
-            <div className="space-y-4">
-              {filteredGroupedLinks.map(({ group, links: groupLinks }) => (
-                <div key={group?.id ?? '__ungrouped__'}>
-                  {/* 分组标题：仅在 "全部" 视图且有自定义分组时显示 */}
-                  {group && hasAnyGroup && activeHomeTab === 'all' && (
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs tracking-widest text-muted-foreground/60 uppercase select-none">
-                        {group.name}
-                      </span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-4 md:grid-cols-6 gap-4 md:gap-6">
-                    {groupLinks.map((link) => (
-                      <ContextMenu key={link.id}>
-                        <ContextMenuTrigger asChild>
-                          <a
-                            href={ensureUrlHasProtocol(link.url)}
-                            className="flex items-center justify-center py-4 px-2 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
-                            title={link.name}
-                          >
-                            <div className="group-hover:scale-110 transition-transform duration-200">
-                              <QuickLinkIcon
-                                name={link.name}
-                                url={link.url}
-                                icon={link.icon}
-                                size={32}
-                              />
-                            </div>
-                          </a>
-                        </ContextMenuTrigger>
-                        <ContextMenuContent>
-                          <ContextMenuItem onClick={() => copyToClipboard(link.url)}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            {t('contextMenu.copyLink')}
-                          </ContextMenuItem>
-                          {hasAnyGroup && (
-                            <>
-                              <ContextMenuSub>
-                                <ContextMenuSubTrigger>
-                                  <FolderInput className="mr-2 h-4 w-4" />
-                                  {t('contextMenu.moveToGroup')}
-                                </ContextMenuSubTrigger>
-                                <ContextMenuSubContent>
-                                  <ContextMenuItem
-                                    onClick={() => moveToGroup(link.id, undefined)}
-                                    disabled={!link.groupId}
-                                  >
-                                    {t('contextMenu.ungrouped')}
-                                  </ContextMenuItem>
-                                  <ContextMenuSeparator />
-                                  {quickLinkGroups
-                                    .sort((a, b) => a.order - b.order)
-                                    .map((g) => (
-                                      <ContextMenuItem
-                                        key={g.id}
-                                        onClick={() => moveToGroup(link.id, g.id)}
-                                        disabled={link.groupId === g.id}
-                                      >
-                                        {g.name}
-                                      </ContextMenuItem>
-                                    ))}
-                                </ContextMenuSubContent>
-                              </ContextMenuSub>
-                            </>
-                          )}
-                          <ContextMenuSeparator />
-                          <ContextMenuItem
-                            onClick={() => confirmRemoveQuickLink(link.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {t('contextMenu.delete')}
-                          </ContextMenuItem>
-                        </ContextMenuContent>
-                      </ContextMenu>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 右下角浏览器设置和扩展程序页面按钮 */}
-      <div className="fixed bottom-4 right-4 flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleOpenBrowserSettings}
-          className="text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-all duration-200"
-          title={t('index.openBrowserSettings')}
-        >
-          <Settings2 className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleOpenExtensions}
-          className="text-muted-foreground/60 hover:text-muted-foreground hover:bg-accent/50 transition-all duration-200"
-          title={t('index.openExtensions')}
-        >
-          <Puzzle className="h-5 w-5" />
-        </Button>
-      </div>
+      {/* 全部展示：全屏 Launchpad */}
+      {showLaunchpad && (
+        <Launchpad
+          sections={launchpadSections}
+          groups={quickLinkGroups}
+          onClose={() => setShowLaunchpad(false)}
+          onCopy={copyToClipboard}
+          onMoveToGroup={moveToGroup}
+          onRemoveLink={confirmRemoveQuickLink}
+        />
+      )}
 
       {/* 统一设置弹窗 */}
       <SettingsModal

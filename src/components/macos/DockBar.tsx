@@ -1,0 +1,545 @@
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
+import { Check, LayoutGrid, Plus, X } from "lucide-react";
+import { useI18n } from "@/hooks/useI18n";
+import { dockMagnification } from "@/lib/macosDock";
+import { reorderQuickLinkGroups, sortQuickLinkGroups } from "@/lib/quickLinkGroups";
+import { cn } from "@/lib/utils";
+import DockGroupItem from "./DockGroupItem";
+import GroupStack from "./GroupStack";
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
+
+const UNGROUPED_KEY = "__ungrouped__";
+
+/** 放大参数：影响半径与峰值缩放，调大 SPREAD 会让更多邻居一起抬起 */
+const MAGNIFY_SPREAD = 110;
+const MAGNIFY_MAX_SCALE = 1.45;
+const MAGNIFY_LIFT = 10;
+
+/** 悬浮多久后自动展开堆栈；已有堆栈打开时切换是即时的 */
+const HOVER_OPEN_DELAY = 180;
+const HOVER_CLOSE_DELAY = 220;
+
+/** 与 GroupStack 的实际排版保持一致，用于把面板收拢进视口 */
+const STACK_CELL = 80;
+const STACK_GAP = 4;
+const STACK_PADDING = 24;
+
+interface DockSection {
+  group: QuickLinkGroup | null;
+  links: QuickLink[];
+}
+
+interface DockBarProps {
+  sections: DockSection[];
+  groups: QuickLinkGroup[];
+  onGroupsChange: (groups: QuickLinkGroup[]) => void;
+  onAddGroup: (name: string) => void;
+  onRenameGroup: (groupId: string, name: string) => void;
+  onDeleteGroup: (groupId: string) => void;
+  onOpenLaunchpad: () => void;
+  onCopy: (url: string) => void;
+  onMoveToGroup: (linkId: string, groupId: string | undefined) => void;
+  onRemoveLink: (linkId: string) => void;
+}
+
+interface Slot {
+  outer: HTMLDivElement;
+  inner: HTMLElement;
+  center: number;
+}
+
+export default function DockBar({
+  sections,
+  groups,
+  onGroupsChange,
+  onAddGroup,
+  onRenameGroup,
+  onDeleteGroup,
+  onOpenLaunchpad,
+  onCopy,
+  onMoveToGroup,
+  onRemoveLink,
+}: DockBarProps) {
+  const { t } = useI18n();
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const outerRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const slotsRef = useRef<Slot[]>([]);
+  const pointerXRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const suppressRef = useRef(false);
+
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const [pinned, setPinned] = useState(false);
+  const [anchorX, setAnchorX] = useState(0);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const addInputRef = useRef<HTMLInputElement>(null);
+
+  const sortedGroups = useMemo(() => sortQuickLinkGroups(groups), [groups]);
+  const sortableIds = useMemo(() => sortedGroups.map((g) => g.id), [sortedGroups]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const openSection = useMemo(() => {
+    if (!openKey) return null;
+    return (
+      sections.find((s) => (s.group?.id ?? UNGROUPED_KEY) === openKey) ?? null
+    );
+  }, [openKey, sections]);
+
+  // 未分组只有真的存在链接时才占一个 Dock 槽位
+  const ungroupedSection = useMemo(
+    () => sections.find((s) => s.group === null) ?? null,
+    [sections]
+  );
+  const ungroupedCount = ungroupedSection?.links.length ?? 0;
+
+  // --- 放大 ----------------------------------------------------------------
+
+  const measureSlots = useCallback(() => {
+    const next: Slot[] = [];
+    for (const outer of outerRefs.current) {
+      if (!outer) continue;
+      const inner = outer.querySelector<HTMLElement>(".dock-item");
+      if (!inner) continue;
+      const rect = outer.getBoundingClientRect();
+      next.push({ outer, inner, center: rect.left + rect.width / 2 });
+    }
+    slotsRef.current = next;
+  }, []);
+
+  const applyMagnification = useCallback(() => {
+    rafRef.current = null;
+    const pointerX = pointerXRef.current;
+    const off = suppressRef.current || pointerX === null;
+
+    for (const slot of slotsRef.current) {
+      const scale = off
+        ? 1
+        : dockMagnification(pointerX - slot.center, MAGNIFY_SPREAD, MAGNIFY_MAX_SCALE);
+      slot.inner.style.setProperty("--dock-scale", scale.toFixed(4));
+      slot.inner.style.setProperty(
+        "--dock-lift",
+        `${(-(scale - 1) * MAGNIFY_LIFT).toFixed(2)}px`
+      );
+    }
+  }, []);
+
+  const scheduleMagnification = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(applyMagnification);
+  }, [applyMagnification]);
+
+  const setSettling = useCallback((settling: boolean) => {
+    for (const slot of slotsRef.current) {
+      slot.inner.classList.toggle("dock-item-settling", settling);
+    }
+  }, []);
+
+  // 槽位数量或内容变化后重新测量中心点；transform 不影响布局，所以缓存是安全的。
+  // 槽位变少时要先截断 ref 数组，否则会留下已卸载的旧节点。
+  const slotCount = (ungroupedCount > 0 ? 1 : 0) + sortedGroups.length + 2;
+  useLayoutEffect(() => {
+    outerRefs.current.length = slotCount;
+    measureSlots();
+    setSettling(true);
+  }, [measureSlots, setSettling, slotCount, isAdding]);
+
+  useEffect(() => {
+    const onResize = () => {
+      measureSlots();
+      scheduleMagnification();
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [measureSlots, scheduleMagnification]);
+
+  useEffect(() => () => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
+
+  const handlePointerMove = (e: React.MouseEvent) => {
+    pointerXRef.current = e.clientX;
+    scheduleMagnification();
+  };
+
+  const handleDockEnter = () => {
+    setSettling(false);
+  };
+
+  const handleDockLeave = () => {
+    pointerXRef.current = null;
+    setSettling(true);
+    scheduleMagnification();
+  };
+
+  const suppressMagnification = useCallback(
+    (suppressed: boolean) => {
+      suppressRef.current = suppressed;
+      scheduleMagnification();
+    },
+    [scheduleMagnification]
+  );
+
+  // --- 堆栈开合 ------------------------------------------------------------
+
+  const computeAnchor = useCallback((key: string, linkCount: number) => {
+    const wrapper = wrapperRef.current;
+    if (!wrapper) return 0;
+
+    const slot = slotsRef.current.find((s) => s.outer.dataset.dockKey === key);
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const center = slot ? slot.center : wrapperRect.left + wrapperRect.width / 2;
+
+    // 面板宽度可以精确算出，无需测量，也就不会有先渲染再修正的跳动
+    const columns = Math.max(1, Math.min(5, linkCount || 1));
+    const stackWidth = columns * STACK_CELL + (columns - 1) * STACK_GAP + STACK_PADDING;
+    const half = stackWidth / 2;
+    const margin = 12;
+
+    const clamped = Math.min(
+      Math.max(center, half + margin),
+      window.innerWidth - half - margin
+    );
+    return clamped - wrapperRect.left;
+  }, []);
+
+  const openStack = useCallback(
+    (key: string, pin: boolean) => {
+      const section = sections.find((s) => (s.group?.id ?? UNGROUPED_KEY) === key);
+      setAnchorX(computeAnchor(key, section?.links.length ?? 0));
+      setOpenKey(key);
+      if (pin) setPinned(true);
+    },
+    [computeAnchor, sections]
+  );
+
+  const closeStack = useCallback(() => {
+    setOpenKey(null);
+    setPinned(false);
+  }, []);
+
+  const clearTimers = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const handleHover = useCallback(
+    (key: string) => {
+      if (suppressRef.current) return;
+      clearTimers();
+
+      // 已经有堆栈打开时切换是即时的，和 macOS 菜单一致
+      if (openKey) {
+        if (openKey !== key) openStack(key, pinned);
+        return;
+      }
+
+      hoverTimerRef.current = setTimeout(() => {
+        hoverTimerRef.current = null;
+        openStack(key, false);
+      }, HOVER_OPEN_DELAY);
+    },
+    [openKey, openStack, pinned]
+  );
+
+  const handleActivate = useCallback(
+    (key: string) => {
+      clearTimers();
+      if (openKey === key && pinned) {
+        closeStack();
+        return;
+      }
+      openStack(key, true);
+    },
+    [closeStack, openKey, openStack, pinned]
+  );
+
+  const handleWrapperLeave = () => {
+    handleDockLeave();
+    clearTimers();
+    if (pinned) return; // 点开的堆栈要一直留着，直到点别处或切到另一组
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      closeStack();
+    }, HOVER_CLOSE_DELAY);
+  };
+
+  const handleWrapperEnter = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  // 点击别处或按 Escape 关闭已固定的堆栈
+  useEffect(() => {
+    if (!openKey) return;
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (!wrapperRef.current?.contains(e.target as Node)) closeStack();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeStack();
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [openKey, closeStack]);
+
+  // 分组被删除时，指向它的堆栈要跟着关掉
+  useEffect(() => {
+    if (!openKey || openKey === UNGROUPED_KEY) return;
+    if (!groups.some((g) => g.id === openKey)) closeStack();
+  }, [openKey, groups, closeStack]);
+
+  // --- 拖拽排序 ------------------------------------------------------------
+
+  const handleDragStart = () => {
+    clearTimers();
+    closeStack();
+    suppressMagnification(true);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    suppressMagnification(false);
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      onGroupsChange(reorderQuickLinkGroups(groups, String(active.id), String(over.id)));
+    }
+    requestAnimationFrame(measureSlots);
+  };
+
+  // --- 新建分组 ------------------------------------------------------------
+
+  useEffect(() => {
+    if (isAdding) addInputRef.current?.focus();
+  }, [isAdding]);
+
+  const commitAddGroup = () => {
+    const name = newGroupName.trim();
+    if (name) onAddGroup(name);
+    setNewGroupName("");
+    setIsAdding(false);
+    suppressMagnification(false);
+  };
+
+  const cancelAddGroup = () => {
+    setNewGroupName("");
+    setIsAdding(false);
+    suppressMagnification(false);
+  };
+
+  // --- 渲染 ----------------------------------------------------------------
+
+  let slotIndex = 0;
+  const nextRef = (key: string) => {
+    const index = slotIndex++;
+    return (el: HTMLDivElement | null) => {
+      outerRefs.current[index] = el;
+      if (el) el.dataset.dockKey = key;
+    };
+  };
+
+  return (
+    <div
+      ref={wrapperRef}
+      className="relative flex justify-center"
+      onMouseEnter={handleWrapperEnter}
+      onMouseLeave={handleWrapperLeave}
+    >
+      {openSection && (
+        <GroupStack
+          group={openSection.group}
+          links={openSection.links}
+          groups={groups}
+          anchorX={anchorX}
+          onCopy={onCopy}
+          onMoveToGroup={onMoveToGroup}
+          onRemove={onRemoveLink}
+          onOpenLink={closeStack}
+        />
+      )}
+
+      <div
+        className="liquid-glass flex items-end gap-1 rounded-[22px] px-3 py-2"
+        onMouseMove={handlePointerMove}
+        onMouseEnter={handleDockEnter}
+      >
+        {/* 未分组：不参与排序，也没有右键管理项 */}
+        {ungroupedSection && (
+          <DockGroupItem
+            group={null}
+            links={ungroupedSection.links}
+            isOpen={openKey === UNGROUPED_KEY}
+            sortable={false}
+            registerRef={nextRef(UNGROUPED_KEY)}
+            onActivate={() => handleActivate(UNGROUPED_KEY)}
+            onHover={() => handleHover(UNGROUPED_KEY)}
+          />
+        )}
+
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => suppressMagnification(false)}
+        >
+          <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
+            <div className="flex items-end gap-1">
+              {sortedGroups.map((group) => {
+                const section = sections.find((s) => s.group?.id === group.id);
+                return (
+                  <DockGroupItem
+                    key={group.id}
+                    group={group}
+                    links={section?.links ?? []}
+                    isOpen={openKey === group.id}
+                    sortable
+                    registerRef={nextRef(group.id)}
+                    onActivate={() => handleActivate(group.id)}
+                    onHover={() => handleHover(group.id)}
+                    onRename={onRenameGroup}
+                    onDelete={onDeleteGroup}
+                    onEditingChange={suppressMagnification}
+                  />
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
+
+        {/* 分隔线，对应 macOS Dock 里应用区与其他项之间的那道分隔 */}
+        <div className="mx-1 mb-4 h-10 w-px self-center bg-foreground/15" />
+
+        {/* 新建分组 */}
+        <div ref={nextRef("__add__")} className="flex-shrink-0">
+          <div className="dock-item flex w-16 flex-col items-center gap-1">
+            {isAdding ? (
+              <div className="flex h-12 w-12 items-center justify-center gap-0.5 rounded-[14px] border border-dashed border-border">
+                <button
+                  type="button"
+                  onClick={commitAddGroup}
+                  disabled={!newGroupName.trim()}
+                  className="rounded p-0.5 text-foreground/70 hover:text-foreground disabled:opacity-30"
+                  title={t("common.confirm")}
+                >
+                  <Check className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelAddGroup}
+                  className="rounded p-0.5 text-foreground/70 hover:text-foreground"
+                  title={t("common.cancel")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                title={t("quickLinks.newGroup")}
+                aria-label={t("quickLinks.newGroup")}
+                onClick={() => {
+                  clearTimers();
+                  closeStack();
+                  setIsAdding(true);
+                  suppressMagnification(true);
+                }}
+                className={cn(
+                  "flex h-12 w-12 items-center justify-center rounded-[14px]",
+                  "border border-dashed border-border text-muted-foreground/70",
+                  "hover:border-foreground/40 hover:text-foreground",
+                  "outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                )}
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            )}
+
+            {isAdding ? (
+              <input
+                ref={addInputRef}
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitAddGroup();
+                  if (e.key === "Escape") cancelAddGroup();
+                }}
+                placeholder={t("quickLinks.groupNamePlaceholder")}
+                className="w-[74px] rounded-md border border-border bg-card px-1 py-0.5 text-center text-[10px] text-foreground outline-none focus:ring-1 focus:ring-ring"
+              />
+            ) : (
+              <span className="max-w-full truncate text-[10px] leading-none text-foreground/70 select-none">
+                {t("quickLinks.newGroup")}
+              </span>
+            )}
+            <span className="h-1 w-1" />
+          </div>
+        </div>
+
+        {/* 全部展示 */}
+        <div ref={nextRef("__launchpad__")} className="flex-shrink-0">
+          <div className="dock-item flex w-16 flex-col items-center gap-1">
+            <button
+              type="button"
+              title={t("dock.showAll")}
+              aria-label={t("dock.showAll")}
+              onClick={() => {
+                clearTimers();
+                closeStack();
+                onOpenLaunchpad();
+              }}
+              onMouseEnter={() => clearTimers()}
+              className={cn(
+                "liquid-glass flex h-12 w-12 items-center justify-center rounded-[14px]",
+                "text-foreground/75 hover:text-foreground",
+                "outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+            >
+              <LayoutGrid className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+            <span className="max-w-full truncate text-[10px] leading-none text-foreground/70 select-none">
+              {t("dock.showAll")}
+            </span>
+            <span className="h-1 w-1" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

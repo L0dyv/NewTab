@@ -17,6 +17,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'common.delete': '删除',
         'common.confirm': '确认',
         'common.close': '关闭',
+        'common.clear': '清空',
         'common.edit': '编辑',
         'common.loading': '加载中...',
         'common.AI': 'AI',
@@ -189,6 +190,15 @@ const messages: Record<Locale, Record<string, string>> = {
         'contextMenu.delete': '删除',
         'contextMenu.moveToGroup': '移动到分组',
         'contextMenu.ungrouped': '未分组',
+
+        // Dock 与全部展示
+        'dock.showAll': '全部展示',
+        'dock.emptyGroup': '这个分组还没有链接',
+        'dock.filterPlaceholder': '筛选链接...',
+        'dock.noMatches': '没有匹配的链接',
+        'dock.noLinks': '还没有快速链接',
+        'dock.continued': '(续)',
+        'dock.page': '第',
     },
     'en': {
         // Common
@@ -200,6 +210,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'common.delete': 'Delete',
         'common.confirm': 'Confirm',
         'common.close': 'Close',
+        'common.clear': 'Clear',
         'common.edit': 'Edit',
         'common.loading': 'Loading...',
         'common.AI': 'AI',
@@ -372,6 +383,15 @@ const messages: Record<Locale, Record<string, string>> = {
         'contextMenu.delete': 'Delete',
         'contextMenu.moveToGroup': 'Move to Group',
         'contextMenu.ungrouped': 'Ungrouped',
+
+        // Dock and show all
+        'dock.showAll': 'Show All',
+        'dock.emptyGroup': 'This group has no links yet',
+        'dock.filterPlaceholder': 'Filter links...',
+        'dock.noMatches': 'No matching links',
+        'dock.noLinks': 'No quick links yet',
+        'dock.continued': '(cont.)',
+        'dock.page': 'Page',
     },
 };
 
