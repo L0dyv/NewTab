@@ -1,4 +1,4 @@
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Moon, SunMedium, Contrast } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,9 +15,11 @@ const ThemeToggle = () => {
 
   const getThemeIcon = () => {
     if (theme === 'system') {
-      return <Monitor className="h-5 w-5" />;
+      return <Contrast className="h-[18px] w-[18px]" strokeWidth={1.75} />;
     }
-    return actualTheme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />;
+    return actualTheme === 'dark'
+      ? <Moon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+      : <SunMedium className="h-[18px] w-[18px]" strokeWidth={1.75} />;
   };
 
   return (
@@ -38,7 +40,7 @@ const ThemeToggle = () => {
           onClick={() => setTheme('light')}
           className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
         >
-          <Sun className="mr-2 h-4 w-4" />
+          <SunMedium className="mr-2 h-4 w-4" />
           {t('theme.light')}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -52,7 +54,7 @@ const ThemeToggle = () => {
           onClick={() => setTheme('system')}
           className="cursor-pointer focus:bg-accent focus:text-accent-foreground data-[highlighted]:bg-accent"
         >
-          <Monitor className="mr-2 h-4 w-4" />
+          <Contrast className="mr-2 h-4 w-4" />
           {t('theme.system')}
         </DropdownMenuItem>
       </DropdownMenuContent>

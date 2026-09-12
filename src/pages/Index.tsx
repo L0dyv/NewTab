@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Settings, Settings2, Search, Puzzle, ArrowRight } from "lucide-react";
+import { Settings, SlidersHorizontal, Search, Puzzle, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import AutoComplete from "@/components/AutoComplete";
@@ -453,27 +453,33 @@ const Index = () => {
     // 这里不能再铺 bg-background：它是不透明的，会把 body 上的环境色块整个盖住
     <div className="h-screen flex flex-col items-center justify-center p-4 transition-colors overflow-hidden">
 
-      {/* 右上角工具栏：底部整条留给 Dock，所以这些入口都收到顶部 */}
+      {/* 右上角工具栏：底部整条留给 Dock，所以这些入口都收到顶部。
+          分成两簇，中间留一道间隔：左边这两个是跳出去到浏览器的（浏览器设置、
+          扩展管理页），右边这两个是这个扩展自己的（外观、本扩展设置）。挤在
+          一起时两个"设置"看起来是同类，位置本身就能承担一半的区分。*/}
       <div className="absolute top-4 right-4 flex items-center gap-1">
-        <ThemeToggle />
         <Button
           variant="ghost"
           size="icon"
           onClick={handleOpenBrowserSettings}
-          className="text-muted-foreground/60 hover:text-foreground"
+          className="text-muted-foreground/50 hover:text-foreground"
           title={t('index.openBrowserSettings')}
         >
-          <Settings2 className="h-5 w-5" />
+          <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </Button>
         <Button
           variant="ghost"
           size="icon"
           onClick={handleOpenExtensions}
-          className="text-muted-foreground/60 hover:text-foreground"
+          className="text-muted-foreground/50 hover:text-foreground"
           title={t('index.openExtensions')}
         >
-          <Puzzle className="h-5 w-5" />
+          <Puzzle className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </Button>
+
+        <div className="mx-1.5 h-4 w-px bg-foreground/12" />
+
+        <ThemeToggle />
         <Button
           variant="ghost"
           size="icon"
@@ -481,7 +487,7 @@ const Index = () => {
           className="text-muted-foreground hover:text-foreground"
           title={t('index.openSettings')}
         >
-          <Settings className="h-5 w-5" />
+          <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} />
         </Button>
       </div>
 
