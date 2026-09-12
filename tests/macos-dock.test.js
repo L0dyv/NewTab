@@ -152,41 +152,48 @@ const links = [
 // --- paginateLaunchpad -----------------------------------------------------
 
 const makeLinks = (n, prefix = "x") =>
-  Array.from({ length: n }, (_, i) => ({ id: `${prefix}${i}`, name: `${prefix}${i}`, url: "https://e.com" }));
+  Array.from({ length: n }, (_, i) => ({
+    id: prefix + i,
+    name: prefix + i,
+    url: "https://e.com",
+  }));
 
 {
-  const pages = paginateLaunchpad(
-    [{ group: { id: "a", name: "A" }, links: makeLinks(3, "a") }],
-    { cols: 4, rows: 5 }
-  );
-  assert.equal(pages.length, 1, "a small section fits on one page");
-  assert.equal(pages[0][0].continued, false, "first chunk is not marked continued");
-}
-
-{
-  // 每页 5 行：区段一占 1+1=2 行，区段二占 1+2=3 行，正好填满一页。
+  // 一个分组一页，不论它有多小
   const pages = paginateLaunchpad(
     [
-      { group: { id: "a", name: "A" }, links: makeLinks(4, "a") },
-      { group: { id: "b", name: "B" }, links: makeLinks(8, "b") },
-      { group: { id: "c", name: "C" }, links: makeLinks(2, "c") },
+      { group: { id: "a", name: "A" }, links: makeLinks(3, "a") },
+      { group: { id: "b", name: "B" }, links: makeLinks(2, "b") },
+      { group: { id: "c", name: "C" }, links: makeLinks(1, "c") },
     ],
     { cols: 4, rows: 5 }
   );
 
-  assert.equal(pages.length, 2, "the third section spills to a second page");
-  assert.deepEqual(pages[0].map((s) => s.group.id), ["a", "b"], "first page holds A and B");
-  assert.deepEqual(pages[1].map((s) => s.group.id), ["c"], "second page holds C");
+  assert.equal(pages.length, 3, "each group gets its own page");
+  assert.deepEqual(
+    pages.map((page) => page.map((s) => s.group.id)),
+    [["a"], ["b"], ["c"]],
+    "a page never mixes two groups"
+  );
+  assert.ok(
+    pages.every((page) => page.length === 1),
+    "a page holds exactly one section"
+  );
+  assert.ok(
+    pages.every((page) => page[0].continued === false),
+    "a group that fits is never marked continued"
+  );
 }
 
 {
-  // 单个区段超过整页容量时必须拆开，且不能丢链接。
+  // 只有单个分组装不下整页时才拆，且不能丢链接
   const pages = paginateLaunchpad(
     [{ group: { id: "big", name: "Big" }, links: makeLinks(30, "b") }],
     { cols: 4, rows: 5 }
   );
 
-  assert.ok(pages.length > 1, "an oversized section splits across pages");
+  assert.equal(pages.length, 2, "16 fit on a page, so 30 needs two");
+  assert.equal(pages[0][0].links.length, 16, "the first page fills to capacity");
   assert.equal(pages[0][0].continued, false, "the first chunk is not continued");
   assert.equal(pages[1][0].continued, true, "later chunks are marked continued");
 
@@ -203,8 +210,8 @@ const makeLinks = (n, prefix = "x") =>
     ],
     { cols: 4, rows: 5 }
   );
-  assert.equal(pages.length, 1, "empty sections do not create pages");
-  assert.equal(pages[0].length, 1, "empty sections are skipped entirely");
+  assert.equal(pages.length, 1, "an empty group does not take a page");
+  assert.equal(pages[0][0].group, null, "the ungrouped section still gets one");
 }
 
 {
@@ -215,11 +222,11 @@ const makeLinks = (n, prefix = "x") =>
     [{ group: { id: "a", name: "A" }, links: makeLinks(3, "a") }],
     { cols: 0, rows: 0 }
   );
-  assert.ok(degenerate.length >= 1, "degenerate layout still places every link");
+  assert.ok(degenerate.length >= 1, "a degenerate layout still places every link");
   assert.equal(
     degenerate.flat().flatMap((s) => s.links).length,
     3,
-    "degenerate layout drops nothing"
+    "a degenerate layout drops nothing"
   );
 }
 

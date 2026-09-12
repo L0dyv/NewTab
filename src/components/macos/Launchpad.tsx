@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
 import { filterSections, launchpadLayout, paginateLaunchpad } from "@/lib/macosDock";
 import { cn } from "@/lib/utils";
@@ -172,6 +172,39 @@ export default function Launchpad({
           </div>
         )}
       </div>
+
+      {/* 左右翻页。macOS 的启动台只有底部圆点，靠触控板双指滑动翻页；网页上
+          没有这个肌肉记忆，所以补一对箭头，否则只有熟练用户才知道能翻。*/}
+      {pages.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+            disabled={page === 0}
+            aria-label={`${t("dock.page")} ${page}`}
+            className={cn(
+              "liquid-glass liquid-glass-floating absolute left-6 top-1/2 -translate-y-1/2",
+              "flex h-10 w-10 items-center justify-center rounded-full text-foreground/70",
+              "transition-opacity hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+            )}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(p + 1, pages.length - 1))}
+            disabled={page === pages.length - 1}
+            aria-label={`${t("dock.page")} ${page + 2}`}
+            className={cn(
+              "liquid-glass liquid-glass-floating absolute right-6 top-1/2 -translate-y-1/2",
+              "flex h-10 w-10 items-center justify-center rounded-full text-foreground/70",
+              "transition-opacity hover:text-foreground disabled:pointer-events-none disabled:opacity-0"
+            )}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
 
       {/* 页码指示 */}
       <div className="flex flex-shrink-0 items-center justify-center gap-2 py-8">

@@ -113,9 +113,12 @@ export function filterSections(sections, query) {
 /**
  * 把区段铺进 Launchpad 的分页网格。
  *
- * 每个区段占 1 行标题 + ceil(链接数 / cols) 行内容。装不下当前页剩余行数时
- * 换页；单个区段大于整页容量时拆开，续页的区段标记 continued，由渲染层决定
- * 是否弱化重复标题。
+ * 一个分组占满一页。让多个分组挤在同一页上，等于分页和分组两套划分同时存在
+ * 却互不对齐，翻页就失去了含义；一组一页之后，翻页就是"换一个分组"。
+ * 单个分组超过一页容量时才拆开，续页标记 continued，由渲染层决定是否弱化
+ * 重复出现的标题。
+ *
+ * 每页留一行给分组标题，其余行放链接。
  *
  * @param {Array<{ group: object|null, links: Array }>} sections
  * @param {{ cols: number, rows: number }} layout
@@ -124,18 +127,9 @@ export function filterSections(sections, query) {
 export function paginateLaunchpad(sections, layout) {
   const cols = Math.max(1, Math.floor(layout?.cols || 1));
   const rows = Math.max(2, Math.floor(layout?.rows || 2));
+  const capacity = Math.max(1, (rows - 1) * cols);
 
   const pages = [];
-  let current = [];
-  let rowsUsed = 0;
-
-  const flush = () => {
-    if (current.length > 0) {
-      pages.push(current);
-      current = [];
-      rowsUsed = 0;
-    }
-  };
 
   for (const section of sections || []) {
     if (!section.links || section.links.length === 0) continue;
@@ -144,27 +138,14 @@ export function paginateLaunchpad(sections, layout) {
     let continued = false;
 
     while (remaining.length > 0) {
-      // 一个区段至少要放下标题行加一行内容，否则先换页。
-      if (rows - rowsUsed < 2) {
-        flush();
-      }
-
-      const capacity = (rows - rowsUsed - 1) * cols;
-      const take = Math.min(remaining.length, capacity);
-      const chunk = remaining.slice(0, take);
-
-      current.push({ group: section.group, links: chunk, continued });
-      rowsUsed += 1 + Math.ceil(take / cols);
-      remaining = remaining.slice(take);
-
-      if (remaining.length > 0) {
-        continued = true;
-        flush();
-      }
+      pages.push([
+        { group: section.group, links: remaining.slice(0, capacity), continued },
+      ]);
+      remaining = remaining.slice(capacity);
+      continued = true;
     }
   }
 
-  flush();
   return pages;
 }
 
