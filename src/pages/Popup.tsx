@@ -438,13 +438,13 @@ export default function Popup() {
 
                     {/* 搜索引擎选择：与首页同款分段控件 */}
                     <div className="mb-3 flex justify-center">
-                        <div className="liquid-glass inline-flex flex-wrap items-center justify-center gap-0.5 rounded-full p-0.5">
+                        <div className="inline-flex flex-wrap items-center justify-center gap-0.5">
                         {searchEngines.filter(e => e.enabled !== false).map((engine, index) => (
                             <button
                                 key={engine.id}
                                 type="button"
                                 className={`relative inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                                    ? "bg-card text-foreground shadow-sm"
+                                    ? "bg-foreground/[0.08] text-foreground"
                                     : "text-muted-foreground hover:text-foreground bg-transparent"
                                     }`}
                                 onClick={() => handleSearchEngineChange(engine.id)}

@@ -517,16 +517,17 @@ const Index = () => {
             </Button>
           </div>
 
-          {/* 搜索引擎选择：做成一条分段控件，选中项是抬起的浅色药丸，
-              而不是原来的纯黑实心块，以免在整页玻璃质感里显得突兀 */}
-          <div className="mt-5 flex justify-center">
-            <div className="liquid-glass inline-flex flex-wrap items-center justify-center gap-0.5 rounded-full p-1">
+          {/* 搜索引擎选择。不套容器：搜索框已经是一个圆角矩形，再加一层玻璃
+              轨道、里面又是一颗选中药丸，就成了三层圆角相互嵌套。这里只保留
+              选中项的药丸，未选中项是纯文字 */}
+          <div className="mt-4 flex justify-center">
+            <div className="inline-flex flex-wrap items-center justify-center gap-0.5">
             {searchEngines.filter(e => e.enabled !== false).map((engine, index) => (
               <button
                 key={engine.id}
                 type="button"
                 className={`relative inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-foreground/[0.08] text-foreground"
                   : "text-muted-foreground hover:text-foreground bg-transparent"
                   }`}
                 onClick={() => handleSearchEngineChange(engine.id)}
