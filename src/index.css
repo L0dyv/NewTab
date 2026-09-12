@@ -51,12 +51,14 @@
        绝对纯色，模糊出来仍是同一个色块，玻璃就完全读不出来——macOS 上 Dock
        背后永远有壁纸，那是这套材质成立的前提。这里不做成可见的渐变设计，
        只做到"底面不是平的"，让模糊有东西可以平均。*/
-    /* 左上偏冷、右上偏暖，底部再收一笔冷色。单一灰调铺开只会让页面发闷，
-       两个方向的微弱色温差才有纵深——但幅度要小到读不出"这是个渐变"。*/
+    /* 颜色只放在这里。界面本身保持中性玻璃，彩度由背景承担——macOS 上也是
+       桌面壁纸有颜色、Dock 与窗口是中性的。此前这几笔调得太淡，叠在近白的底
+       上落差不足 2%，等于装了机制却没打开，整页看下来一点彩度也没有。
+       现在推到能看见，但仍是大面积柔和的色块，不与内容争。*/
     --ambient-tints:
-      radial-gradient(56rem 40rem at 10% -10%, rgba(118, 134, 164, 0.15), transparent 62%),
-      radial-gradient(50rem 36rem at 90% 2%, rgba(176, 156, 138, 0.14), transparent 60%),
-      radial-gradient(68rem 44rem at 48% 112%, rgba(124, 140, 158, 0.13), transparent 62%);
+      radial-gradient(58rem 44rem at 14% 12%, rgba(136, 158, 214, 0.34), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(228, 172, 146, 0.3), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(146, 186, 198, 0.28), transparent 66%);
 
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
@@ -114,9 +116,9 @@
     --sidebar-ring: 24 6% 22%;
 
     --ambient-tints:
-      radial-gradient(56rem 40rem at 10% -10%, rgba(150, 172, 214, 0.085), transparent 62%),
-      radial-gradient(50rem 36rem at 90% 2%, rgba(214, 184, 160, 0.065), transparent 60%),
-      radial-gradient(68rem 44rem at 48% 112%, rgba(158, 176, 202, 0.07), transparent 62%);
+      radial-gradient(58rem 44rem at 14% 12%, rgba(110, 142, 224, 0.22), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(214, 138, 104, 0.17), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(104, 162, 190, 0.18), transparent 66%);
   }
 }
 

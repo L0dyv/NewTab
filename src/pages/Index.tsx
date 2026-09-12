@@ -441,7 +441,8 @@ const Index = () => {
   }, []);
 
   return (
-    <div className="h-screen bg-background flex flex-col items-center justify-center p-4 transition-colors overflow-hidden">
+    // 这里不能再铺 bg-background：它是不透明的，会把 body 上的环境色块整个盖住
+    <div className="h-screen flex flex-col items-center justify-center p-4 transition-colors overflow-hidden">
 
       {/* 右上角工具栏：底部整条留给 Dock，所以这些入口都收到顶部 */}
       <div className="absolute top-4 right-4 flex items-center gap-1">
