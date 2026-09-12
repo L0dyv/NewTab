@@ -141,9 +141,10 @@ export default function Launchpad({
         </div>
       </div>
 
-      {/* 内容区。竖直居中：一页装不满时顶对齐会在下方留出大半屏空白，
-          看起来像内容到此为止，反而读不出还有下一页 */}
-      <div className="flex min-h-0 flex-1 items-center justify-center px-10">
+      {/* 内容区从顶部起排，不做竖直居中。所有页的第一行必须落在同一高度，
+          否则满页贴顶、短页居中，翻页时整块内容会上下跳。装不满的一页下方
+          留白即可——启动台本来就是这样。*/}
+      <div className="flex min-h-0 flex-1 items-start justify-center px-10">
         {currentPage.length === 0 ? (
           <p className="mt-10 text-sm text-muted-foreground select-none">
             {query ? t("dock.noMatches") : t("dock.noLinks")}
