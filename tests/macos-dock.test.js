@@ -252,16 +252,24 @@ const makeLinks = (n, prefix = "x") =>
 
 {
   const wide = launchpadLayout(1920, 1080);
-  assert.ok(wide.cols >= 2 && wide.cols <= 9, "columns stay within the clamp");
-  assert.ok(wide.rows >= 2, "rows never fall below two");
+  assert.ok(wide.cols >= 3 && wide.cols <= 8, "columns stay within the clamp");
+  assert.ok(wide.rows >= 2 && wide.rows <= 6, "rows stay within the clamp");
 
   const narrow = launchpadLayout(420, 640);
-  assert.ok(narrow.cols >= 2, "narrow viewports still get at least two columns");
+  assert.ok(narrow.cols >= 3, "narrow viewports still get the minimum columns");
   assert.ok(narrow.cols < wide.cols, "narrow viewports get fewer columns than wide ones");
 
   const tiny = launchpadLayout(0, 0);
-  assert.equal(tiny.cols, 2, "zero width clamps to the minimum columns");
+  assert.equal(tiny.cols, 3, "zero width clamps to the minimum columns");
   assert.equal(tiny.rows, 2, "zero height clamps to the minimum rows");
+
+  // 内容区自身有 1024px 上限，列数不能跟着视口一起涨——那正是网格比内容宽、
+  // 图标挤在左边的原因
+  assert.equal(
+    launchpadLayout(3840, 1080).cols,
+    launchpadLayout(1440, 1080).cols,
+    "columns stop growing once the content box is full, however wide the window"
+  );
 }
 
 console.log("[PASS] macos dock tests");

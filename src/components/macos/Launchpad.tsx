@@ -93,6 +93,14 @@ export default function Launchpad({
 
   const currentPage = pages[page] ?? [];
 
+  // 单元格 7.5rem 宽、间距 gap-1，与下面 LinkTile 的类名保持一致
+  const CELL = 120;
+  const GAP = 4;
+  const sectionWidth = (count: number) => {
+    const n = Math.max(1, Math.min(layout.cols, count));
+    return n * CELL + (n - 1) * GAP;
+  };
+
   return (
     <div
       className="liquid-glass-scrim animate-launchpad-in fixed inset-0 z-40 flex flex-col"
@@ -133,8 +141,9 @@ export default function Launchpad({
         </div>
       </div>
 
-      {/* 内容区 */}
-      <div className="flex min-h-0 flex-1 justify-center px-10">
+      {/* 内容区。竖直居中：一页装不满时顶对齐会在下方留出大半屏空白，
+          看起来像内容到此为止，反而读不出还有下一页 */}
+      <div className="flex min-h-0 flex-1 items-center justify-center px-10">
         {currentPage.length === 0 ? (
           <p className="mt-10 text-sm text-muted-foreground select-none">
             {query ? t("dock.noMatches") : t("dock.noLinks")}
@@ -144,26 +153,35 @@ export default function Launchpad({
             data-launchpad-surface
             className="animate-launchpad-grid w-full max-w-5xl space-y-6"
           >
+            {/* 每个分组自成一块：宽度取"列数"与"本组数量"的较小值，于是分割线
+                与下方图标等宽。让它横贯整个容器的话，图标只占中间一段、两端各
+                拖出一截空线，看起来像没铺满；而直接用 w-fit 又会取消换行约束，
+                链接多的分组会排成一条长龙冲出屏幕。*/}
             {currentPage.map((section, index) => (
-              <section key={`${section.group?.id ?? "__ungrouped__"}-${index}`}>
+              <section
+                key={`${section.group?.id ?? "__ungrouped__"}-${index}`}
+                className="mx-auto"
+                style={{ width: sectionWidth(section.links.length) }}
+              >
                 <div className="mb-2 flex items-center gap-3">
                   <div className="h-px flex-1 bg-foreground/10" />
-                  <span className="select-none text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <span className="select-none whitespace-nowrap text-[11px] uppercase tracking-widest text-muted-foreground">
                     {section.group ? section.group.name : t("quickLinks.ungrouped")}
                     {section.continued && ` ${t("dock.continued")}`}
                   </span>
                   <div className="h-px flex-1 bg-foreground/10" />
                 </div>
-                <div
-                  className="grid gap-1"
-                  style={{ gridTemplateColumns: `repeat(${layout.cols}, minmax(0, 1fr))` }}
-                >
+                {/* 每个分组各自居中排列，而不是共用一套固定列。分组之间隔着
+                    分割线，跨组对齐本来就没有意义；而固定列在分组链接数少于
+                    列数时会把它们挤到左边，右侧空一截。*/}
+                <div className="flex flex-wrap justify-center gap-1">
                   {section.links.map((link) => (
                     <LinkTile
                       key={link.id}
                       link={link}
                       groups={groups}
                       iconSize={32}
+                      className="w-[7.5rem] shrink-0"
                       onCopy={onCopy}
                       onMoveToGroup={onMoveToGroup}
                       onRemove={onRemoveLink}
@@ -233,8 +251,16 @@ export default function Launchpad({
       <button
         type="button"
         onClick={onClose}
-        className="absolute right-5 top-5 rounded-full p-2 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-        aria-label={t("common.close")}
+        // 与翻页箭头同款的玻璃圆钮：持续可见的部分保持纯图形，一眼能看出这里
+        // 可以退出。"按 Esc 也行"放在 tooltip 里，只在指向时出现——Esc 没有
+        // 字体支持可靠的符号，写成文字又会一直占着视线。
+        className={cn(
+          "liquid-glass liquid-glass-floating absolute right-6 top-6",
+          "flex h-10 w-10 items-center justify-center rounded-full text-foreground/70",
+          "transition-colors hover:text-foreground"
+        )}
+        aria-label={`${t("common.close")} (Esc)`}
+        title={`${t("common.close")} · Esc`}
       >
         <X className="h-5 w-5" />
       </button>

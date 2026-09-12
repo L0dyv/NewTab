@@ -173,12 +173,15 @@ export function paginateLaunchpad(sections, layout) {
  * 依据可用视口尺寸推算 Launchpad 的列数与行数。
  * 单元格尺寸与两侧留白保持与渲染层一致，避免算出的页容量和实际排版对不上。
  */
-export function launchpadLayout(width, height, cell = { width: 132, height: 116 }) {
-  const usableWidth = Math.max(0, (width || 0) - 160);
-  const usableHeight = Math.max(0, (height || 0) - 300);
+export function launchpadLayout(width, height, cell = { width: 128, height: 104 }) {
+  // 内容区受 max-w-5xl（1024px）限制，再减去两侧 px-10。按视口宽度算列数会
+  // 得出比内容区更多的列，铺不满就成了左对齐，右侧空一截。
+  const usableWidth = Math.min(1024, Math.max(0, (width || 0) - 80));
+  // 上方筛选框与下方页码各占一段固定高度，余下的才是网格能用的高度
+  const usableHeight = Math.max(0, (height || 0) - 240);
 
-  const cols = Math.max(2, Math.min(9, Math.floor(usableWidth / cell.width) || 2));
-  const rows = Math.max(2, Math.floor(usableHeight / cell.height) || 2);
+  const cols = Math.max(3, Math.min(8, Math.floor(usableWidth / cell.width) || 3));
+  const rows = Math.max(2, Math.min(6, Math.floor(usableHeight / cell.height) || 2));
 
   return { cols, rows };
 }
