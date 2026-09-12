@@ -54,7 +54,8 @@ interface DockBarProps {
   onAddGroup: (name: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
   onDeleteGroup: (groupId: string) => void;
-  onOpenLaunchpad: () => void;
+  /** scope 为分组 key 时只展示该组，省略则展示全部 */
+  onOpenLaunchpad: (scope?: string) => void;
   onCopy: (url: string) => void;
   onMoveToGroup: (linkId: string, groupId: string | undefined) => void;
   onRemoveLink: (linkId: string) => void;
@@ -274,9 +275,13 @@ export default function DockBar({
       if (suppressRef.current) return;
       clearTimers();
 
-      // 已经有堆栈打开时切换是即时的，和 macOS 菜单一致
+      // 点开的堆栈只认下一次点击。否则点完之后手一顺势划开，途中扫过任何一个
+      // 图标都会把它换掉——用户并没有要切换的意思。
+      if (pinned) return;
+
+      // 悬浮打开的堆栈则是即时切换的，和菜单栏一致
       if (openKey) {
-        if (openKey !== key) openStack(key, pinned);
+        if (openKey !== key) openStack(key, false);
         return;
       }
 
@@ -298,6 +303,17 @@ export default function DockBar({
       openStack(key, true);
     },
     [closeStack, openKey, openStack, pinned]
+  );
+
+  // 双击：收起堆栈，进 Launchpad 只看这一组。链接多到扇形放不下时，这是比
+  // 退化成网格面板更合适的去处。
+  const handleExpand = useCallback(
+    (key: string) => {
+      clearTimers();
+      closeStack();
+      onOpenLaunchpad(key);
+    },
+    [closeStack, onOpenLaunchpad]
   );
 
   const handleWrapperLeave = () => {
@@ -424,6 +440,7 @@ export default function DockBar({
             sortable={false}
             registerRef={nextRef(UNGROUPED_KEY)}
             onActivate={() => handleActivate(UNGROUPED_KEY)}
+            onExpand={() => handleExpand(UNGROUPED_KEY)}
             onHover={() => handleHover(UNGROUPED_KEY)}
           />
         )}
@@ -450,6 +467,7 @@ export default function DockBar({
                     sortable
                     registerRef={nextRef(group.id)}
                     onActivate={() => handleActivate(group.id)}
+                    onExpand={() => handleExpand(group.id)}
                     onHover={() => handleHover(group.id)}
                     onRename={onRenameGroup}
                     onDelete={onDeleteGroup}

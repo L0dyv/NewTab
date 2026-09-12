@@ -23,6 +23,8 @@ const Index = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcutHints, setShowShortcutHints] = useState(false);
   const [showLaunchpad, setShowLaunchpad] = useState(false);
+  // 双击 Dock 上的分组时只看那一组；为空表示看全部
+  const [launchpadScope, setLaunchpadScope] = useState<string | null>(null);
 
   const readOpenSearchInNewTab = () => {
     try {
@@ -346,6 +348,13 @@ const Index = () => {
     [quickLinks, quickLinkGroups]
   );
 
+  const launchpadVisible = useMemo(() => {
+    if (!launchpadScope) return launchpadSections;
+    return launchpadSections.filter(
+      (s) => (s.group?.id ?? '__ungrouped__') === launchpadScope
+    );
+  }, [launchpadSections, launchpadScope]);
+
   // 移动链接到分组
   const moveToGroup = (linkId: string, groupId: string | undefined) => {
     setQuickLinks(links => links.map(link =>
@@ -563,7 +572,10 @@ const Index = () => {
           onAddGroup={addGroup}
           onRenameGroup={renameGroup}
           onDeleteGroup={deleteGroup}
-          onOpenLaunchpad={() => setShowLaunchpad(true)}
+          onOpenLaunchpad={(scope) => {
+            setLaunchpadScope(scope ?? null);
+            setShowLaunchpad(true);
+          }}
           onCopy={copyToClipboard}
           onMoveToGroup={moveToGroup}
           onRemoveLink={confirmRemoveQuickLink}
@@ -573,9 +585,12 @@ const Index = () => {
       {/* 全部展示：全屏 Launchpad */}
       {showLaunchpad && (
         <Launchpad
-          sections={launchpadSections}
+          sections={launchpadVisible}
           groups={quickLinkGroups}
-          onClose={() => setShowLaunchpad(false)}
+          onClose={() => {
+            setShowLaunchpad(false);
+            setLaunchpadScope(null);
+          }}
           onCopy={copyToClipboard}
           onMoveToGroup={moveToGroup}
           onRemoveLink={confirmRemoveQuickLink}

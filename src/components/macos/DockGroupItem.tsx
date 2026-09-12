@@ -22,6 +22,8 @@ export interface DockGroupItemProps {
   sortable: boolean;
   registerRef: (el: HTMLDivElement | null) => void;
   onActivate: () => void;
+  /** 双击：在 Launchpad 里只看这一个分组 */
+  onExpand: () => void;
   onHover: () => void;
   onRename?: (groupId: string, name: string) => void;
   onDelete?: (groupId: string) => void;
@@ -41,6 +43,7 @@ export default function DockGroupItem({
   sortable,
   registerRef,
   onActivate,
+  onExpand,
   onHover,
   onRename,
   onDelete,
@@ -130,7 +133,14 @@ export default function DockGroupItem({
           title=""
           aria-label={label}
           aria-expanded={isOpen}
-          onClick={onActivate}
+          // 双击的第二下也会先发一个 click，照常处理会把刚开的堆栈又收起来，
+          // 于是双击过程中闪一下。detail 是这一串里的第几次点击，等于 1 时
+          // 才是真正的单击。
+          onClick={(e) => {
+            if (e.detail > 1) return;
+            onActivate();
+          }}
+          onDoubleClick={onExpand}
           onMouseEnter={onHover}
           onFocus={() => {
             setHovered(true);
