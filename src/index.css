@@ -106,9 +106,13 @@
     @apply border-border;
   }
 
+  /* 界面文字走系统 UI 字体：UI 文字小而密，衬线的笔画细节在 10-12px 上
+     只剩噪声。衬线留给需要它的大标题，用 Tailwind 的 font-serif 单独指定。*/
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Serif SC', 'Georgia', 'Times New Roman', serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text',
+      'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI',
+      'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }

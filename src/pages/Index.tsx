@@ -486,7 +486,7 @@ const Index = () => {
               day: "numeric",
             })}
           </p>
-          <h1 className="text-5xl md:text-6xl font-light text-foreground tracking-tight mb-2">
+          <h1 className="font-serif text-5xl md:text-6xl font-light text-foreground tracking-tight mb-2">
             {t('index.welcome')}
           </h1>
           <p className="text-sm text-muted-foreground">{t('index.whatToDo')}</p>

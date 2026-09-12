@@ -4,9 +4,8 @@ import './index.css'
 import { initFaviconCache } from './lib/faviconCache'
 
 // 本地化字体 - Noto Serif SC（思源宋体）
-import '@fontsource/noto-serif-sc/400.css'
-import '@fontsource/noto-serif-sc/500.css'
-import '@fontsource/noto-serif-sc/700.css'
+// 衬线只用在首页的欢迎标题上，字号大且只有一个字重，所以只加载 300
+import '@fontsource/noto-serif-sc/300.css'
 
 type ChromeRuntime = { id?: string }
 type ChromeRoot = { runtime?: ChromeRuntime }
