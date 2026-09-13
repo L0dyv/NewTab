@@ -107,7 +107,8 @@ export default function DockGroupItem({
       {...attributes}
       {...listeners}
     >
-      {/* 堆栈展开后面板标题里已经有分组名，气泡就不再重复 */}
+      {/* 名称气泡在 Dock 下方，堆栈在上方，两者不再抢位置，所以展开期间也
+          继续显示——指着哪一项就一直看得到它叫什么。*/}
       {isRenaming ? (
         <div className="absolute bottom-full left-1/2 z-30 mb-8 -translate-x-1/2">
           <input
@@ -124,7 +125,7 @@ export default function DockGroupItem({
           />
         </div>
       ) : (
-        <DockTooltip label={label} visible={hovered && !isDragging && !isOpen} />
+        <DockTooltip label={label} visible={hovered && !isDragging} />
       )}
 
       <div className="dock-item flex">
