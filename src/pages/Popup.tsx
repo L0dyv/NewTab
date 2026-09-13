@@ -436,10 +436,17 @@ export default function Popup() {
     return (
         <div
             // 弹窗容器本身就是那扇窗，不是浮在内容上的玻璃面板：它背后是浏览器
-            // 的弹窗底，没有内容可透。所以这里用实底加色调起伏，玻璃留给窗内控件
+            // 的弹窗底，没有内容可透。所以这里用实底，玻璃留给窗内控件。
+            //
+            // 不加 ambient-surface：那三层环境色是按整屏尺寸画的（928×704px），
+            // 放进 400×270 的弹窗后三层几乎完全重叠，叠出 rgb(229,230,231) 的
+            // 冷灰，而不是它本该是的 rgb(248,248,246)。窗里的玻璃控件是 0.72 白
+            // 叠上去的近白色，两者差出 19/255，看着就是"窗是灰的、菜单是白的"。
+            // 整屏上那是柔和的色彩起伏，缩到这个尺寸只剩一层均匀的灰。
+            //
             // relative 是必需的：设置按钮是绝对定位的，没有它会相对视口摆放。
             // 真实弹窗里视口恰好等于窗口尺寸，两者重合把这个问题盖住了
-            className="ambient-surface bg-background relative rounded-2xl overflow-hidden"
+            className="bg-background relative rounded-2xl overflow-hidden"
             style={{ width: "400px", height: popupHeight }}
         >
             <div className="p-4 h-full flex flex-col">
