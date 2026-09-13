@@ -578,7 +578,13 @@ export default function Popup() {
                                         )}
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="center" className="w-52">
+                                <DropdownMenuContent
+                                    align="center"
+                                    // 弹窗很矮，菜单贴着上下边缘会像是被切断的；留出一圈
+                                    // 余量，滚动条也就有地方落
+                                    collisionPadding={8}
+                                    className="w-52"
+                                >
                                     <DropdownMenuItem onClick={() => handleAddCurrentPage()}>
                                         {t('contextMenu.ungrouped')}
                                     </DropdownMenuItem>
