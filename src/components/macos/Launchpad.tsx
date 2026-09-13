@@ -98,11 +98,19 @@ export default function Launchpad({
 
   const currentPage = pages[page] ?? [];
 
-  // 盒子高度取最高一页的实际高度：各页等高，翻页时第一行不会上下跳；装不满的
-  // 一页留空在下方，与启动台最后一页的样子一致。
+  // 盒子高度只跟视口有关，与这次装了多少内容无关。
+  //
+  // 取"最高一页的实际高度"看似更紧凑，实际会让整块的高度随内容变化，而整块
+  // 又是在视口里居中的——于是"只看一个分组"和"全部展示"的起始高度差出一大截，
+  // 每次打开启动台，筛选框和第一行图标都落在不同的地方。启动台不是这样的：
+  // 不管里面装了什么，那个框始终在同一个位置，内容少就把空白留在下面。
   const pageBoxMinHeight = useMemo(
-    () => Math.max(0, ...pages.map((p) => launchpadPageHeight(p, layout.cols))),
-    [pages, layout.cols]
+    () =>
+      Math.max(
+        layout.gridHeight,
+        ...pages.map((p) => launchpadPageHeight(p, layout.cols))
+      ),
+    [pages, layout.cols, layout.gridHeight]
   );
 
   return (
