@@ -356,7 +356,15 @@ export default function DockBar({
     if (!openKey) return;
 
     const onPointerDown = (e: PointerEvent) => {
-      if (!wrapperRef.current?.contains(e.target as Node)) closeStack();
+      const target = e.target as HTMLElement | null;
+      if (wrapperRef.current?.contains(target)) return;
+
+      // 右键菜单挂在 body 上，按 DOM 归属确实不在 Dock 里，但它是从堆栈里的
+      // 链接唤出来的，点它不算"点了别处"。不放行的话，堆栈会在 pointerdown
+      // 时就收起，菜单随之卸载，那一下点击走不到自己的处理函数。
+      if (target?.closest?.('[role="menu"], [data-radix-popper-content-wrapper]')) return;
+
+      closeStack();
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeStack();

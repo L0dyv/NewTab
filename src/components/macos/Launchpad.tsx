@@ -110,10 +110,18 @@ export default function Launchpad({
       className="liquid-glass-scrim animate-launchpad-in fixed inset-0 z-40 flex flex-col"
       onWheel={handleWheel}
       onMouseDown={(e) => {
+        const target = e.target as HTMLElement;
+
+        // 右键菜单是 Portal 到 body 上的，并不在底板的 DOM 里，但 React 的
+        // 合成事件仍沿组件树冒到这里。只看"点的是什么元素"会把菜单项判成
+        // 点在了启动台之外：底板随即关闭，菜单跟着卸载，那一下点击永远走不到
+        // 它的处理函数——菜单看起来"点一下就没了，什么也没发生"。
+        // 判据改成这一下是不是真的落在底板的 DOM 内。
+        if (!e.currentTarget.contains(target)) return;
+
         // 启动台盖在桌面上，点它之外的地方就退回去。"之外"指内容区以外的留白：
         // 网格、筛选框、页码这些是启动台自己的地盘，在它们内部（包括图标之间的
         // 空隙）点击不应该退出，否则想点图标稍微偏一点就把整个面板关掉了。
-        const target = e.target as HTMLElement;
         if (!target.closest("[data-launchpad-surface], a, button, input")) onClose();
       }}
     >
