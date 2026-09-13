@@ -15,12 +15,12 @@ import {
 } from "@dnd-kit/sortable";
 import { Check, LayoutGrid, Plus, X } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-import { dockMagnification, stackGridColumns } from "@/lib/macosDock";
+import { dockMagnification, fanCapacity, stackGridColumns } from "@/lib/macosDock";
 import { reorderQuickLinkGroups, sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import { cn } from "@/lib/utils";
 import DockGroupItem from "./DockGroupItem";
 import DockTooltip from "./DockTooltip";
-import GroupStack, { FAN_MAX_ITEMS } from "./GroupStack";
+import GroupStack from "./GroupStack";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 const UNGROUPED_KEY = "__ungrouped__";
@@ -38,6 +38,10 @@ const HOVER_CLOSE_DELAY = 220;
 const STACK_CELL = 80;
 const STACK_GAP = 4;
 const STACK_PADDING = 24;
+
+/** 堆栈与 Dock 之间的 mb-6，加上不希望扇形顶到的那截屏幕顶部留白 */
+const STACK_OFFSET = 24;
+const STACK_TOP_MARGIN = 24;
 
 /** 扇形名称药丸最宽 11rem 加图标与间距，离左缘不足这个距离就把名称翻到右侧 */
 const FAN_LABEL_RESERVE = 230;
@@ -95,6 +99,7 @@ export default function DockBar({
   const [pinned, setPinned] = useState(false);
   const [anchorX, setAnchorX] = useState(0);
   const [fanSide, setFanSide] = useState<"left" | "right">("left");
+  const [fanLimit, setFanLimit] = useState(8);
   const [isAdding, setIsAdding] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
@@ -213,45 +218,58 @@ export default function DockBar({
 
   // --- 堆栈开合 ------------------------------------------------------------
 
-  const computeAnchor = useCallback((key: string, linkCount: number) => {
+  // 扇形能放几项取决于 Dock 上方还剩多少高度，所以要在展开的那一刻按实际
+  // 位置量，不能写死一个与视口无关的常数。
+  const measureFanLimit = useCallback(() => {
     const wrapper = wrapperRef.current;
-    if (!wrapper) return { x: 0, fanSide: "left" as const };
-
-    const slot = slotsRef.current.find((s) => s.outer.dataset.dockKey === key);
-    const wrapperRect = wrapper.getBoundingClientRect();
-    const center = slot ? slot.center : wrapperRect.left + wrapperRect.width / 2;
-
-    // 扇形的名称药丸朝一侧伸出，离屏幕左缘太近时翻到右侧，免得被裁掉
-    const fanSide = center < FAN_LABEL_RESERVE ? ("right" as const) : ("left" as const);
-
-    // 扇形的图标就落在 Dock 图标正上方，不需要收拢
-    if (linkCount > 0 && linkCount <= FAN_MAX_ITEMS) {
-      return { x: center - wrapperRect.left, fanSide };
-    }
-
-    // 网格是一整块面板，宽度可以精确算出，无需测量也就没有先渲染再修正的跳动
-    const columns = stackGridColumns(linkCount);
-    const stackWidth = columns * STACK_CELL + (columns - 1) * STACK_GAP + STACK_PADDING;
-    const half = stackWidth / 2;
-    const margin = 12;
-
-    const clamped = Math.min(
-      Math.max(center, half + margin),
-      window.innerWidth - half - margin
-    );
-    return { x: clamped - wrapperRect.left, fanSide };
+    const top = wrapper ? wrapper.getBoundingClientRect().top : window.innerHeight;
+    return fanCapacity(top - STACK_OFFSET - STACK_TOP_MARGIN);
   }, []);
+
+  const computeAnchor = useCallback(
+    (key: string, linkCount: number, fanLimit: number) => {
+      const wrapper = wrapperRef.current;
+      if (!wrapper) return { x: 0, fanSide: "left" as const };
+
+      const slot = slotsRef.current.find((s) => s.outer.dataset.dockKey === key);
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const center = slot ? slot.center : wrapperRect.left + wrapperRect.width / 2;
+
+      // 扇形的名称药丸朝一侧伸出，离屏幕左缘太近时翻到右侧，免得被裁掉
+      const fanSide = center < FAN_LABEL_RESERVE ? ("right" as const) : ("left" as const);
+
+      // 扇形的图标就落在 Dock 图标正上方，不需要收拢
+      if (linkCount > 0 && linkCount <= fanLimit) {
+        return { x: center - wrapperRect.left, fanSide };
+      }
+
+      // 网格是一整块面板，宽度可以精确算出，无需测量也就没有先渲染再修正的跳动
+      const columns = stackGridColumns(linkCount);
+      const stackWidth = columns * STACK_CELL + (columns - 1) * STACK_GAP + STACK_PADDING;
+      const half = stackWidth / 2;
+      const margin = 12;
+
+      const clamped = Math.min(
+        Math.max(center, half + margin),
+        window.innerWidth - half - margin
+      );
+      return { x: clamped - wrapperRect.left, fanSide };
+    },
+    []
+  );
 
   const openStack = useCallback(
     (key: string, pin: boolean) => {
       const section = sections.find((s) => (s.group?.id ?? UNGROUPED_KEY) === key);
-      const anchor = computeAnchor(key, section?.links.length ?? 0);
+      const limit = measureFanLimit();
+      const anchor = computeAnchor(key, section?.links.length ?? 0, limit);
       setAnchorX(anchor.x);
       setFanSide(anchor.fanSide);
+      setFanLimit(limit);
       setOpenKey(key);
       if (pin) setPinned(true);
     },
-    [computeAnchor, sections]
+    [computeAnchor, measureFanLimit, sections]
   );
 
   const closeStack = useCallback(() => {
@@ -420,6 +438,7 @@ export default function DockBar({
           groups={groups}
           anchorX={anchorX}
           fanSide={fanSide}
+          fanLimit={fanLimit}
           onCopy={onCopy}
           onMoveToGroup={onMoveToGroup}
           onRemove={onRemoveLink}

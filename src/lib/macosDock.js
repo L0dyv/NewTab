@@ -55,6 +55,30 @@ export function dockMagnification(distance, spread, maxScale) {
   return 1 + (scale - 1) * falloff;
 }
 
+/** 扇形里一项的高度与行距，DockBar 判断放不放得下时要用同一套值 */
+export const FAN_ITEM_HEIGHT = 28;
+export const FAN_ITEM_GAP = 12;
+
+/** 扇形项数的上限。Dock 到搜索区之间大约就这么高——再多几项，药丸就会压到
+ *  搜索框和引擎标签上；扇形是一颗颗分开的药丸，中间透出下面的内容，叠上去
+ *  是花的，不像面板那样能干净地盖住。超出就改用网格。*/
+const FAN_MAX_ITEMS = 8;
+
+/**
+ * Dock 上方这段高度里，扇形最多能竖着放几项。
+ *
+ * 上限之外还要看实际余量：窗口矮的时候连 8 项也放不下，硬排会顶出屏幕，
+ * 这时改用网格反而更紧凑。
+ *
+ * @param {number} availableHeight Dock 顶边以上可用的像素高度
+ * @returns {number} 扇形能容纳的项数
+ */
+export function fanCapacity(availableHeight) {
+  const space = Math.max(0, availableHeight || 0);
+  const fits = Math.floor((space + FAN_ITEM_GAP) / (FAN_ITEM_HEIGHT + FAN_ITEM_GAP));
+  return Math.max(1, Math.min(FAN_MAX_ITEMS, fits));
+}
+
 /**
  * 堆栈切换到网格形态时用几列。
  * 开方后向上取整，让网格尽量接近正方形；上限 5 列，避免面板横向顶出视口。

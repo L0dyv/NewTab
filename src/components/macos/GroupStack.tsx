@@ -1,18 +1,15 @@
 import QuickLinkIcon from "@/components/QuickLinkIcon";
 import { useI18n } from "@/hooks/useI18n";
-import { stackGridColumns } from "@/lib/macosDock";
+import { FAN_ITEM_HEIGHT, stackGridColumns } from "@/lib/macosDock";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import LinkContextMenu, { type LinkActions } from "./LinkContextMenu";
 import LinkTile from "./LinkTile";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
-/** 超过这个数量就从扇形切到网格，和 macOS 的堆栈一样 */
-export const FAN_MAX_ITEMS = 8;
-
-/** 扇形里图标的边长，DockBar 计算锚点时要用同一个值。
+/** 扇形里图标的边长。行高就是图标高，所以和 fanCapacity 用的是同一个值。
  *  favicon 多半是 16 或 32px 的位图，画得比源图大就会糊，所以压在 28。*/
-export const FAN_ICON_SIZE = 28;
+export const FAN_ICON_SIZE = FAN_ITEM_HEIGHT;
 
 interface GroupStackProps extends LinkActions {
   group: QuickLinkGroup | null;
@@ -22,6 +19,9 @@ interface GroupStackProps extends LinkActions {
   anchorX: number;
   /** 扇形里名称挂在图标的哪一侧，靠近屏幕左缘时翻到右侧 */
   fanSide: "left" | "right";
+  /** 超过这个数量就从扇形切到网格。由 DockBar 按 Dock 上方的余量算出，
+   *  两边必须取同一个值，否则锚点会按另一种形态计算。*/
+  fanLimit: number;
   onOpenLink: () => void;
 }
 
@@ -38,6 +38,7 @@ export default function GroupStack({
   groups,
   anchorX,
   fanSide,
+  fanLimit,
   onCopy,
   onMoveToGroup,
   onRemove,
@@ -48,11 +49,11 @@ export default function GroupStack({
 
   if (links.length === 0) {
     return (
-      <div
-        className="absolute bottom-full z-20 mb-6 -translate-x-1/2 animate-stack-in"
-        style={{ left: anchorX }}
-      >
-        <div className="liquid-glass liquid-glass-floating whitespace-nowrap rounded-full px-4 py-2 text-xs text-muted-foreground">
+      // 收拢用的 -translate-x-1/2 必须和入场动画分处两层。animate-stack-in 的
+      // fill-mode 是 both，动画结束后 transform 仍由关键帧接管，写在同一个元素
+      // 上的位移会被整条覆盖掉——盒子于是以左缘而不是中心对齐锚点。
+      <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+        <div className="animate-stack-in liquid-glass liquid-glass-floating whitespace-nowrap rounded-full px-4 py-2 text-xs text-muted-foreground">
           {t("dock.emptyGroup")}
         </div>
       </div>
@@ -60,7 +61,7 @@ export default function GroupStack({
   }
 
   // --- 扇形 ---------------------------------------------------------------
-  if (links.length <= FAN_MAX_ITEMS) {
+  if (links.length <= fanLimit) {
     const labelsLeft = fanSide === "left";
 
     return (
@@ -121,11 +122,10 @@ export default function GroupStack({
   const columns = stackGridColumns(links.length);
 
   return (
-    <div
-      className="absolute bottom-full z-20 mb-6 -translate-x-1/2 animate-stack-in"
-      style={{ left: anchorX }}
-    >
-      <div className="liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">
+    // 同上：位移留在外层，动画放进内层。两者写在一起时 translateX(-50%) 会被
+    // 关键帧的 transform 顶掉，面板整体右移半个身位，压根不在 Dock 图标上方。
+    <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+      <div className="animate-stack-in liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">
         <div className="select-none px-1 pb-2 text-center text-[11px] font-medium tracking-wide text-muted-foreground">
           {groupName}
         </div>

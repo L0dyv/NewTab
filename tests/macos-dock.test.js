@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import {
   buildDockSections,
   dockMagnification,
+  fanCapacity,
   stackGridColumns,
   groupInitial,
   filterSections,
   paginateLaunchpad,
   launchpadLayout,
+  FAN_ITEM_HEIGHT,
+  FAN_ITEM_GAP,
 } from "../src/lib/macosDock.js";
 
 const groups = [
@@ -99,6 +102,35 @@ const links = [
     const cols = stackGridColumns(n);
     assert.ok(cols >= 1 && cols <= 5, `columns stay in range for ${n} links`);
     assert.ok(Number.isInteger(cols), `columns are whole for ${n} links`);
+  }
+}
+
+// --- fanCapacity -----------------------------------------------------------
+
+{
+  const pitch = FAN_ITEM_HEIGHT + FAN_ITEM_GAP;
+
+  assert.equal(
+    fanCapacity(40 * pitch),
+    8,
+    "a tall window still caps the fan, so it never reaches the search block"
+  );
+  assert.equal(fanCapacity(0), 1, "no room at all still reports one, never zero");
+  assert.equal(fanCapacity(-500), 1, "a nonsense height reports one");
+
+  const roomFor5 = 5 * FAN_ITEM_HEIGHT + 4 * FAN_ITEM_GAP;
+  assert.equal(fanCapacity(roomFor5), 5, "a short window follows the real height instead");
+  assert.ok(
+    fanCapacity(roomFor5 - 1) < 5,
+    "one pixel short of five items is four, so the fan never overflows"
+  );
+
+  // 单调：窗口变高，能放的只多不少
+  let previous = 0;
+  for (let h = 0; h <= 40 * pitch; h += 17) {
+    const now = fanCapacity(h);
+    assert.ok(now >= previous, `capacity must not shrink as height grows (at ${h}px)`);
+    previous = now;
   }
 }
 
