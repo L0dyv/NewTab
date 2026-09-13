@@ -34,6 +34,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'popup.addPage': '收藏当前页面',
         'popup.added': '已添加',
         'popup.exists': '已存在',
+        'popup.moved': '已移动到分组',
         'popup.openInNewTab': '搜索结果在新标签页打开',
         'popup.addPageUrl': '将收藏：',
 
@@ -225,6 +226,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'popup.addPage': 'Save Current Page',
         'popup.added': 'Added',
         'popup.exists': 'Already exists',
+        'popup.moved': 'Moved to group',
         'popup.openInNewTab': 'Open results in new tab',
         'popup.addPageUrl': 'Will save:',
 
