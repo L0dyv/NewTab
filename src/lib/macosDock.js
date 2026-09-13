@@ -134,6 +134,39 @@ export function filterSections(sections, query) {
   return result;
 }
 
+/** Launchpad 网格的实际排版尺寸，取自浏览器里量到的真实盒子。
+ *  渲染层与分页必须共用这一套，否则算出的页容量和排出来的高度对不上。*/
+export const LAUNCHPAD_CELL = 120; // LinkTile 宽度
+export const LAUNCHPAD_GAP = 4; // 单元格之间的间距
+export const LAUNCHPAD_ROW_HEIGHT = 92; // LinkTile 高度
+export const LAUNCHPAD_HEADER_HEIGHT = 25; // 分组标题行加它下方的外边距
+export const LAUNCHPAD_SECTION_GAP = 24; // 相邻分组之间的间距
+
+/**
+ * 一个区段排出来有多高（像素）。
+ *
+ * @param {number} linkCount 这一段里的链接数
+ * @param {number} cols 每行几个
+ */
+export function sectionHeight(linkCount, cols) {
+  const columns = Math.max(1, Math.floor(cols) || 1);
+  const rows = Math.max(1, Math.ceil(Math.max(0, linkCount) / columns));
+  return (
+    LAUNCHPAD_HEADER_HEIGHT + rows * LAUNCHPAD_ROW_HEIGHT + (rows - 1) * LAUNCHPAD_GAP
+  );
+}
+
+/** 一页排出来有多高，渲染层据此给页盒子定高，使各页等高、翻页不跳。 */
+export function launchpadPageHeight(page, cols) {
+  return (page || []).reduce(
+    (total, section, index) =>
+      total +
+      (index > 0 ? LAUNCHPAD_SECTION_GAP : 0) +
+      sectionHeight(section.links.length, cols),
+    0
+  );
+}
+
 /**
  * 把区段铺进 Launchpad 的分页网格。
  *
@@ -141,27 +174,33 @@ export function filterSections(sections, query) {
  * 一页，分组之间由渲染层画分割线。这里不再一组一页——那样"页"会同时表示
  * 一个分组和一屏内容，页码点两件事都说不清；分组入口由 Dock 的堆栈承担。
  *
- * 每个区段占一行标题加 ceil(链接数 / cols) 行内容。当前页剩余行数放不下时
- * 换页；单个区段大于整页容量时拆开，续页标记 continued，由渲染层决定是否
- * 弱化重复出现的标题。
+ * 容量按像素算而不是按"行"算。标题行只有 25px，图标行有 92px，把两者都当成
+ * 一行计价的话，每个区段都会凭空多占掉七十来个像素——页面报告自己满了，实际
+ * 只铺到六成，后面还压着好几页。
+ *
+ * 单个区段大于整页容量时拆开，续页标记 continued，由渲染层决定是否弱化重复
+ * 出现的标题。
  *
  * @param {Array<{ group: object|null, links: Array }>} sections
- * @param {{ cols: number, rows: number }} layout
+ * @param {{ cols: number, gridHeight?: number, rows?: number }} layout
  * @returns {Array<Array<{ group: object|null, links: Array, continued: boolean }>>}
  */
 export function paginateLaunchpad(sections, layout) {
   const cols = Math.max(1, Math.floor(layout?.cols || 1));
-  const rows = Math.max(2, Math.floor(layout?.rows || 2));
+  const minimum = LAUNCHPAD_HEADER_HEIGHT + LAUNCHPAD_ROW_HEIGHT;
+  const fallback =
+    Math.max(2, Math.floor(layout?.rows || 2)) * (LAUNCHPAD_ROW_HEIGHT + LAUNCHPAD_GAP);
+  const budget = Math.max(minimum, Math.floor(layout?.gridHeight || fallback));
 
   const pages = [];
   let current = [];
-  let rowsUsed = 0;
+  let used = 0;
 
   const flush = () => {
     if (current.length > 0) {
       pages.push(current);
       current = [];
-      rowsUsed = 0;
+      used = 0;
     }
   };
 
@@ -172,14 +211,24 @@ export function paginateLaunchpad(sections, layout) {
     let continued = false;
 
     while (remaining.length > 0) {
-      // 一个区段至少要放下标题行加一行内容，否则先换页
-      if (rows - rowsUsed < 2) flush();
+      const lead = current.length > 0 ? LAUNCHPAD_SECTION_GAP : 0;
 
-      const capacity = (rows - rowsUsed - 1) * cols;
-      const take = Math.min(remaining.length, capacity);
+      // 一个区段至少要放下标题加一行图标，否则先换页。空页一定放得下，
+      // 因为 budget 不小于这个下限，所以这里不会空转。
+      if (used + lead + minimum > budget) {
+        flush();
+        continue;
+      }
+
+      const room = budget - used - lead - LAUNCHPAD_HEADER_HEIGHT;
+      const rowsFit = Math.max(
+        1,
+        Math.floor((room + LAUNCHPAD_GAP) / (LAUNCHPAD_ROW_HEIGHT + LAUNCHPAD_GAP))
+      );
+      const take = Math.min(remaining.length, rowsFit * cols);
 
       current.push({ group: section.group, links: remaining.slice(0, take), continued });
-      rowsUsed += 1 + Math.ceil(take / cols);
+      used += lead + sectionHeight(take, cols);
       remaining = remaining.slice(take);
 
       if (remaining.length > 0) {
@@ -194,12 +243,12 @@ export function paginateLaunchpad(sections, layout) {
 }
 
 /**
- * 依据可用视口尺寸推算 Launchpad 的列数与行数。
+ * 依据可用视口尺寸推算 Launchpad 的网格尺寸。
  * 单元格尺寸与两侧留白保持与渲染层一致，避免算出的页容量和实际排版对不上。
  */
 export function launchpadLayout(width, height, cell = { width: 128, height: 104 }) {
-  // 内容区受 max-w-5xl（1024px）限制，再减去两侧 px-10。按视口宽度算列数会
-  // 得出比内容区更多的列，铺不满就成了左对齐，右侧空一截。
+  // 内容区受 1024px 上限限制，再减去两侧留白。按视口宽度算列数会得出比内容区
+  // 更多的列，铺不满就成了左对齐，右侧空一截。
   const usableWidth = Math.min(1024, Math.max(0, (width || 0) - 80));
   // 上方筛选框与下方页码各占一段固定高度，余下的才是网格能用的高度
   const usableHeight = Math.max(0, (height || 0) - 240);
@@ -207,5 +256,11 @@ export function launchpadLayout(width, height, cell = { width: 128, height: 104 
   const cols = Math.max(3, Math.min(8, Math.floor(usableWidth / cell.width) || 3));
   const rows = Math.max(2, Math.min(6, Math.floor(usableHeight / cell.height) || 2));
 
-  return { cols, rows };
+  return {
+    cols,
+    rows,
+    // 网格盒子正好等于列阵的宽度，于是所有区段共用同一套列位置，左右留白也对称
+    gridWidth: cols * LAUNCHPAD_CELL + (cols - 1) * LAUNCHPAD_GAP,
+    gridHeight: rows * (LAUNCHPAD_ROW_HEIGHT + LAUNCHPAD_GAP),
+  };
 }

@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { useI18n } from "@/hooks/useI18n";
-import { filterSections, launchpadLayout, paginateLaunchpad } from "@/lib/macosDock";
+import {
+  filterSections,
+  launchpadLayout,
+  launchpadPageHeight,
+  paginateLaunchpad,
+} from "@/lib/macosDock";
 import { cn } from "@/lib/utils";
 import LinkTile from "./LinkTile";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
@@ -93,22 +98,12 @@ export default function Launchpad({
 
   const currentPage = pages[page] ?? [];
 
-  // 单元格 7.5rem 宽、间距 gap-1，与下面 LinkTile 的类名保持一致
-  const CELL = 120;
-  const GAP = 4;
-  // 盒子的下限高度，按内容真实的高度计价。分页用的行数模型把 34px 的标题也
-  // 按一整行计价，若直接拿它乘行高，盒子会比任何一页的实际内容高出四成，底部
-  // 那截死空间把可见内容整体顶到视口上方——看起来就是"整体偏高"。
-  // 一个分组约 102px（标题加一行图标），组间 24px；满页约放 rows / 2 个分组。
-  const SECTION_H = 102;
-  const SECTION_GAP = 24;
-  const fullPageSections = Math.max(1, Math.floor(layout.rows / 2));
-  const pageBoxMinHeight =
-    fullPageSections * SECTION_H + (fullPageSections - 1) * SECTION_GAP;
-  const sectionWidth = (count: number) => {
-    const n = Math.max(1, Math.min(layout.cols, count));
-    return n * CELL + (n - 1) * GAP;
-  };
+  // 盒子高度取最高一页的实际高度：各页等高，翻页时第一行不会上下跳；装不满的
+  // 一页留空在下方，与启动台最后一页的样子一致。
+  const pageBoxMinHeight = useMemo(
+    () => Math.max(0, ...pages.map((p) => launchpadPageHeight(p, layout.cols))),
+    [pages, layout.cols]
+  );
 
   return (
     <div
@@ -167,32 +162,33 @@ export default function Launchpad({
         ) : (
           <div
             data-launchpad-surface
-            className="animate-launchpad-grid w-full max-w-5xl space-y-6"
-            // 用下限而不是固定高度：内容更高时盒子跟着长，不会溢出
-            style={{ minHeight: pageBoxMinHeight }}
+            className="animate-launchpad-grid space-y-6"
+            // 宽度正好是列阵的宽度，用下限高度而不是固定高度：内容更高时盒子
+            // 跟着长，不会溢出
+            style={{ width: layout.gridWidth, minHeight: pageBoxMinHeight }}
           >
-            {/* 每个分组自成一块：宽度取"列数"与"本组数量"的较小值，于是分割线
-                与下方图标等宽。让它横贯整个容器的话，图标只占中间一段、两端各
-                拖出一截空线，看起来像没铺满；而直接用 w-fit 又会取消换行约束，
-                链接多的分组会排成一条长龙冲出屏幕。*/}
+            {/* 所有分组共用一套列位置——这是启动台的根本：整屏只有一个网格，
+                每个图标都落在固定的格子上。让每个分组按自己的数量定宽再各自
+                居中，就会出现三套互不相干的列（首行一套、折行一套、下一个分组
+                又一套），谁也对不上谁。*/}
             {currentPage.map((section, index) => (
               <section
                 key={`${section.group?.id ?? "__ungrouped__"}-${index}`}
-                className="mx-auto"
-                style={{ width: sectionWidth(section.links.length) }}
+                className="w-full"
               >
+                {/* 标题贴左，和下面的图标同一条左边界，横线补满剩下的宽度。
+                    分组不满一行时居中的标题会飘到图标右边老远，像是配给别人的。*/}
                 <div className="mb-2 flex items-center gap-3">
-                  <div className="h-px flex-1 bg-foreground/10" />
                   <span className="select-none whitespace-nowrap text-[11px] uppercase tracking-widest text-muted-foreground">
                     {section.group ? section.group.name : t("quickLinks.ungrouped")}
                     {section.continued && ` ${t("dock.continued")}`}
                   </span>
                   <div className="h-px flex-1 bg-foreground/10" />
                 </div>
-                {/* 每个分组各自居中排列，而不是共用一套固定列。分组之间隔着
-                    分割线，跨组对齐本来就没有意义；而固定列在分组链接数少于
-                    列数时会把它们挤到左边，右侧空一截。*/}
-                <div className="flex flex-wrap justify-center gap-1">
+                {/* 从第一列起往右排，排满换行。折行那一行同样从第一列起——
+                    启动台最后一行不满时就是左对齐的，居中反而会让它和上一行
+                    错开半格。*/}
+                <div className="flex flex-wrap justify-start gap-1">
                   {section.links.map((link) => (
                     <LinkTile
                       key={link.id}

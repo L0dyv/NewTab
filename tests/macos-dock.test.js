@@ -9,6 +9,13 @@ import {
   filterSections,
   paginateLaunchpad,
   launchpadLayout,
+  launchpadPageHeight,
+  sectionHeight,
+  LAUNCHPAD_CELL,
+  LAUNCHPAD_GAP,
+  LAUNCHPAD_HEADER_HEIGHT,
+  LAUNCHPAD_ROW_HEIGHT,
+  LAUNCHPAD_SECTION_GAP,
   FAN_ITEM_HEIGHT,
   FAN_ITEM_GAP,
 } from "../src/lib/macosDock.js";
@@ -105,35 +112,6 @@ const links = [
   }
 }
 
-// --- fanCapacity -----------------------------------------------------------
-
-{
-  const pitch = FAN_ITEM_HEIGHT + FAN_ITEM_GAP;
-
-  assert.equal(
-    fanCapacity(40 * pitch),
-    8,
-    "a tall window still caps the fan, so it never reaches the search block"
-  );
-  assert.equal(fanCapacity(0), 1, "no room at all still reports one, never zero");
-  assert.equal(fanCapacity(-500), 1, "a nonsense height reports one");
-
-  const roomFor5 = 5 * FAN_ITEM_HEIGHT + 4 * FAN_ITEM_GAP;
-  assert.equal(fanCapacity(roomFor5), 5, "a short window follows the real height instead");
-  assert.ok(
-    fanCapacity(roomFor5 - 1) < 5,
-    "one pixel short of five items is four, so the fan never overflows"
-  );
-
-  // 单调：窗口变高，能放的只多不少
-  let previous = 0;
-  for (let h = 0; h <= 40 * pitch; h += 17) {
-    const now = fanCapacity(h);
-    assert.ok(now >= previous, `capacity must not shrink as height grows (at ${h}px)`);
-    previous = now;
-  }
-}
-
 // --- groupInitial ----------------------------------------------------------
 
 {
@@ -191,17 +169,18 @@ const makeLinks = (n, prefix = "x") =>
   }));
 
 {
-  // 一页是全部内容的一屏：分组连续铺开，装得下就同处一页
+  // 一页是全部内容的一屏：分组连续铺开，装得下就同处一页。
+  // 预算 300px 放得下 A(117) + 间距 24 + B(117) = 258，再加 C 就是 399，超了。
   const pages = paginateLaunchpad(
     [
       { group: { id: "a", name: "A" }, links: makeLinks(3, "a") },
       { group: { id: "b", name: "B" }, links: makeLinks(2, "b") },
       { group: { id: "c", name: "C" }, links: makeLinks(1, "c") },
     ],
-    { cols: 4, rows: 5 }
+    { cols: 4, gridHeight: 300 }
   );
 
-  assert.equal(pages.length, 2, "six links across three groups need two pages of five rows");
+  assert.equal(pages.length, 2, "three one-row groups overflow a 300px page");
   assert.deepEqual(
     pages.map((page) => page.map((s) => s.group.id)),
     [["a", "b"], ["c"]],
@@ -218,13 +197,70 @@ const makeLinks = (n, prefix = "x") =>
 }
 
 {
+  // 标题按真实高度计价，而不是按一整行图标。这正是原先"页面报告自己满了、
+  // 实际只铺到六成"的来源：两个标题凭空吃掉两行图标的高度。
+  const oneRow = sectionHeight(4, 4);
+  assert.equal(
+    oneRow,
+    LAUNCHPAD_HEADER_HEIGHT + LAUNCHPAD_ROW_HEIGHT,
+    "a one-row group costs its header plus one row of icons"
+  );
+  assert.ok(
+    LAUNCHPAD_HEADER_HEIGHT < LAUNCHPAD_ROW_HEIGHT / 2,
+    "a header is far shorter than an icon row, so it must not be priced as one"
+  );
+
+  const budget = 3 * oneRow + 2 * LAUNCHPAD_SECTION_GAP;
+  const pages = paginateLaunchpad(
+    Array.from({ length: 3 }, (_, i) => ({
+      group: { id: "g" + i, name: "G" + i },
+      links: makeLinks(4, "g" + i),
+    })),
+    { cols: 4, gridHeight: budget }
+  );
+  assert.equal(pages.length, 1, "a budget sized for three groups holds exactly three");
+  assert.equal(
+    launchpadPageHeight(pages[0], 4),
+    budget,
+    "and fills it to the pixel, with no phantom rows left over"
+  );
+}
+
+{
+  // 每一页都要铺到放不下为止：不能出现"这页还空着一大截、内容却压在下一页"
+  const sections = [3, 9, 2, 14, 5, 1].map((n, i) => ({
+    group: { id: "s" + i, name: "S" + i },
+    links: makeLinks(n, "s" + i),
+  }));
+  const layout = { cols: 4, gridHeight: 480 };
+  const pages = paginateLaunchpad(sections, layout);
+
+  pages.forEach((page, index) => {
+    const height = launchpadPageHeight(page, layout.cols);
+    assert.ok(
+      height <= layout.gridHeight,
+      `page ${index} (${height}px) must fit the ${layout.gridHeight}px box`
+    );
+
+    const next = pages[index + 1]?.[0];
+    if (!next) return;
+    const smallest =
+      LAUNCHPAD_SECTION_GAP + LAUNCHPAD_HEADER_HEIGHT + LAUNCHPAD_ROW_HEIGHT;
+    assert.ok(
+      height + smallest > layout.gridHeight,
+      `page ${index} broke early: another row still fits in ${layout.gridHeight - height}px`
+    );
+  });
+}
+
+{
   // 分组顺序必须保持，翻页读下来就是原本的排列
   const pages = paginateLaunchpad(
     [
       { group: { id: "a", name: "A" }, links: makeLinks(8, "a") },
       { group: { id: "b", name: "B" }, links: makeLinks(8, "b") },
     ],
-    { cols: 4, rows: 5 }
+    { cols: 4, gridHeight: 300 }
   );
   // 一个分组跨页时会出现多次，所以合并相邻的重复项再比。要保证的是顺序不变、
   // 且两个分组不交错，而不是每个分组只出现一次。
@@ -267,6 +303,7 @@ const makeLinks = (n, prefix = "x") =>
 {
   assert.deepEqual(paginateLaunchpad([], { cols: 4, rows: 5 }), [], "no sections yields no pages");
   assert.deepEqual(paginateLaunchpad(null, null), [], "null inputs are tolerated");
+  assert.equal(launchpadPageHeight([], 4), 0, "an empty page has no height");
 
   const degenerate = paginateLaunchpad(
     [{ group: { id: "a", name: "A" }, links: makeLinks(3, "a") }],
@@ -302,6 +339,46 @@ const makeLinks = (n, prefix = "x") =>
     launchpadLayout(1440, 1080).cols,
     "columns stop growing once the content box is full, however wide the window"
   );
+
+  // 盒子宽度就是列阵的宽度。两者一旦分开，分组各自居中就会排出互不对齐的列。
+  for (const [w, h] of [[1920, 1080], [1366, 768], [420, 640]]) {
+    const layout = launchpadLayout(w, h);
+    assert.equal(
+      layout.gridWidth,
+      layout.cols * LAUNCHPAD_CELL + (layout.cols - 1) * LAUNCHPAD_GAP,
+      `the box at ${w}x${h} is exactly as wide as its columns`
+    );
+    assert.ok(layout.gridHeight > 0, `the box at ${w}x${h} has a usable height`);
+  }
+}
+
+// --- fanCapacity -----------------------------------------------------------
+
+{
+  const pitch = FAN_ITEM_HEIGHT + FAN_ITEM_GAP;
+
+  assert.equal(
+    fanCapacity(40 * pitch),
+    8,
+    "a tall window still caps the fan, so it never reaches the search block"
+  );
+  assert.equal(fanCapacity(0), 1, "no room at all still reports one, never zero");
+  assert.equal(fanCapacity(-500), 1, "a nonsense height reports one");
+
+  const roomFor5 = 5 * FAN_ITEM_HEIGHT + 4 * FAN_ITEM_GAP;
+  assert.equal(fanCapacity(roomFor5), 5, "a short window follows the real height instead");
+  assert.ok(
+    fanCapacity(roomFor5 - 1) < 5,
+    "one pixel short of five items is four, so the fan never overflows"
+  );
+
+  // 单调：窗口变高，能放的只多不少
+  let previous = 0;
+  for (let h = 0; h <= 40 * pitch; h += 17) {
+    const now = fanCapacity(h);
+    assert.ok(now >= previous, `capacity must not shrink as height grows (at ${h}px)`);
+    previous = now;
+  }
 }
 
 console.log("[PASS] macos dock tests");
