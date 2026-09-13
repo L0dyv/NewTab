@@ -43,9 +43,10 @@ function NavItem({ active, onClick, icon, children }: NavItemProps) {
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors text-left",
+        // 底色要叠在玻璃上而不是盖住它，所以用低透明度的前景色而非实色
         active
-          ? "bg-stone-100 dark:bg-stone-800 text-stone-900 dark:text-stone-100 border-r-2 border-stone-800 dark:border-stone-200"
-          : "text-stone-600 dark:text-stone-400 hover:bg-stone-50 dark:hover:bg-stone-800/50 hover:text-stone-900 dark:hover:text-stone-100"
+          ? "bg-black/[0.05] dark:bg-white/[0.08] text-foreground border-r-2 border-foreground/60"
+          : "text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-foreground"
       )}
     >
       {icon}
@@ -76,7 +77,7 @@ export default function UnifiedSettings({
   return (
     <div className="flex" style={{ height: 'calc(80vh - 80px)', maxHeight: '600px' }}>
       {/* 左侧导航 */}
-      <nav className="w-44 border-r border-border flex-shrink-0 bg-muted/30">
+      <nav className="w-44 border-r border-foreground/10 flex-shrink-0">
         <div className="py-2">
           {categories.map((category) => (
             <NavItem

@@ -6,9 +6,12 @@
 
 @layer base {
   :root {
-    /* ===== V0 Stone 色系（优雅中性色调）===== */
-    --background: 60 9% 98%;
-    /* stone-50 */
+    /* ===== V0 Stone 色系（优雅中性色调）=====
+       底色比 stone-50 略压一点，但仍是浅色：玻璃面板是半透明白，底色若也接近
+       纯白，两者就落在同一个亮度带里，页面与面板读作同一个平色。压到 96% 足以
+       让面板亮出来，再往下就不是浅色模式而是灰色模式了——剩下的层次交给边界
+       和投影，而不是继续压暗页面。*/
+    --background: 48 14% 97%;
     --foreground: 24 10% 10%;
     /* stone-900 */
 
@@ -44,6 +47,19 @@
 
     --radius: 0.625rem;
 
+    /* 玻璃底面的色调起伏。backdrop-filter 处理的是元素背后的像素，底面若是
+       绝对纯色，模糊出来仍是同一个色块，玻璃就完全读不出来——macOS 上 Dock
+       背后永远有壁纸，那是这套材质成立的前提。这里不做成可见的渐变设计，
+       只做到"底面不是平的"，让模糊有东西可以平均。*/
+    /* 颜色只放在这里。界面本身保持中性玻璃，彩度由背景承担——macOS 上也是
+       桌面壁纸有颜色、Dock 与窗口是中性的。此前这几笔调得太淡，叠在近白的底
+       上落差不足 2%，等于装了机制却没打开，整页看下来一点彩度也没有。
+       现在推到能看见，但仍是大面积柔和的色块，不与内容争。*/
+    --ambient-tints:
+      radial-gradient(58rem 44rem at 14% 12%, rgba(148, 166, 204, 0.15), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(214, 182, 160, 0.13), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(158, 186, 194, 0.115), transparent 66%);
+
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
     --sidebar-primary: 24 10% 10%;
@@ -55,9 +71,11 @@
   }
 
   .dark {
-    /* ===== V0 Stone 深色（优雅深色模式）===== */
-    --background: 24 10% 4%;
-    /* stone-950 */
+    /* ===== V0 Stone 深色（优雅深色模式）=====
+       比 stone-950 提亮一点，但不要提到发灰。4% 亮度接近纯黑，面板与页面之间
+       没有余地；提到 10% 又太灰、发闷。7% 是有深度而不死黑的位置，色相略偏冷
+       以免读成一层脏灰。*/
+    --background: 220 7% 7%;
     --foreground: 60 9% 98%;
     /* stone-50 */
 
@@ -98,6 +116,11 @@
     --sidebar-accent-foreground: 60 9% 98%;
     --sidebar-border: 24 6% 20%;
     --sidebar-ring: 24 6% 22%;
+
+    --ambient-tints:
+      radial-gradient(58rem 44rem at 14% 12%, rgba(140, 164, 220, 0.08), transparent 66%),
+      radial-gradient(52rem 40rem at 86% 16%, rgba(212, 164, 140, 0.06), transparent 64%),
+      radial-gradient(64rem 46rem at 50% 92%, rgba(140, 176, 196, 0.06), transparent 66%);
   }
 }
 
@@ -106,11 +129,51 @@
     @apply border-border;
   }
 
+  /* 中文 fallback 的光学补偿。
+     中英混排时 Latin 字形来自字体栈里第一个匹配的字体，中文字形 fallback 到
+     系统中文字体。但中文字体把字面填满整个 em box，Latin 字体则留有大量留白，
+     所以同一 font-size 下中文会显得大一号、也更重。这里用 size-adjust 重新
+     声明本地中文字体，把它缩到与 Latin 光学等大。
+     苹方本身就是按与 SF 配对设计的，不需要补偿，因此不在此列。
+     若本地没装对应字体，该 @font-face 不生效，字体栈自然落到下一项。*/
+  @font-face {
+    font-family: 'Microsoft YaHei UI';
+    src: local('Microsoft YaHei UI');
+    size-adjust: 94%;
+  }
+
+  @font-face {
+    font-family: 'Microsoft YaHei';
+    src: local('Microsoft YaHei');
+    size-adjust: 94%;
+  }
+
+  @font-face {
+    font-family: 'HarmonyOS Sans SC';
+    src: local('HarmonyOS Sans SC');
+    size-adjust: 95%;
+  }
+
+  @font-face {
+    font-family: 'Noto Sans SC';
+    src: local('Noto Sans SC');
+    size-adjust: 95%;
+  }
+
+  /* 界面文字：Latin 用 Inter（专为小字号 UI 设计），中文走系统字体。
+     全站统一这一套，不再混用衬线。*/
   body {
     @apply bg-background text-foreground;
-    font-family: 'Noto Serif SC', 'Georgia', 'Times New Roman', serif;
+    font-family: 'Inter Variable', 'PingFang SC', 'HarmonyOS Sans SC',
+      'Noto Sans SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
+      -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI',
+      system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+
+    /* 首页的玻璃底面，fixed 让色块不随内容滚动 */
+    background-image: var(--ambient-tints);
+    background-attachment: fixed;
   }
 }
 
@@ -128,6 +191,17 @@
     transition-property: color, background-color, border-color, fill, stroke, opacity, box-shadow;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 150ms;
+  }
+
+  /* 切换主题的那一帧要掐掉全部过渡。
+     上面这条全局过渡是给 hover 之类的局部状态用的，主题切换却会让整页每个
+     元素同时做 150ms 渐变，看起来就是"按了没有马上变"。而且 background-image
+     不在过渡属性里，背景色块是瞬间跳的，与其余渐变不同步，更像卡顿而非过渡。*/
+  .theme-switching,
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
   }
 
   /* 更精细的阴影 - Stone 色系 */
@@ -164,28 +238,200 @@
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
   }
 
-  /* === Drag handle cursors ============================================== */
-  /* 浅色模式使用深色光标 */
-  .drag-handle {
-    cursor: url('/drag.svg') 12 12, grab;
-  }
-
+  /* === 拖拽光标 =========================================================
+     用垂直双箭头而不是手形。这些列表都是竖向拖动排序，双箭头直接说明了可移动
+     的方向，而手形只说了"可以抓"，还得再猜往哪儿放。造型上也比自绘的 drag.svg
+     和系统的抓握手干净。*/
+  .drag-handle,
   .drag-handle:active,
   .drag-handle-active {
-    cursor: url('/drag.svg') 12 12, grabbing;
+    cursor: ns-resize;
   }
 
-  /* 深色模式使用系统默认光标 */
-  .dark .drag-handle {
-    cursor: grab;
-  }
-
-  .dark .drag-handle:active,
-  .dark .drag-handle-active {
-    cursor: grabbing;
+  /* Dock 图标上的字形用衬线体，走系统字体不引入 webfont。
+     Windows 的中日韩衬线是宋体，macOS 是宋体-简。*/
+  .font-glyph {
+    font-family: Georgia, 'Times New Roman', 'Songti SC', 'SimSun',
+      'Noto Serif CJK SC', serif;
   }
 
   /* 隐藏滚动条（保持滚动功能） */
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* === 液态玻璃 ==========================================================
+   backdrop-filter 只能模糊真正绘制在元素背后的像素，页面是纯色背景时
+   模糊本身几乎看不出效果。让它读作玻璃的是边缘处理：顶沿一道高光模拟
+   光线在玻璃上边缘的折射，底沿一道暗边收口，外层扩散阴影把面板从背景
+   上抬起来。*/
+@layer components {
+
+  /* 承载玻璃的底面，首页用在 body 上，Popup 用在窗口容器上。
+     渐变本身定义在 --ambient-tints 上，两处共用一份。*/
+  .ambient-surface {
+    background-image: var(--ambient-tints);
+  }
+
+  /* 基础态：平贴在页面里的玻璃。
+     只靠半透明、模糊和一道中性细边来读出"玻璃"，不加投影，也不加顶部高光。
+     顶部一道亮的 inset 高光是经典的浮雕线索，会让内联控件看起来像凸起的
+     塑料按钮而不是一层玻璃；投影同理，它等于宣称这个元素浮在页面之上。*/
+  .liquid-glass {
+    background: rgba(255, 255, 255, 0.58);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(120, 113, 108, 0.22);
+  }
+
+  /* 深色下的玻璃是叠一层极低透明度的纯白，而不是叠灰：在近黑背景上叠暖灰会
+     糊成一片褐色。另外顶边高光在这里必须保留——浅色模式里它读作浮雕，但深色
+     模式下填充本身几乎融进背景，全靠这道亮边勾出面板轮廓。*/
+  .dark .liquid-glass {
+    background: rgba(255, 255, 255, 0.055);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+  }
+
+  /* 浮层态：真正悬在页面内容之上的面板——Dock、堆栈、气泡、弹窗。
+     与 .liquid-glass 叠加使用。
+
+     除了投影，填充也必须提亮。两者的光学角色是相反的：内联玻璃要退后，
+     与页面同亮度是对的；浮层玻璃要前进，在浅色页面上必须比页面更亮，才读得出
+     "这是盖在上面的另一张纸"。亮度与页面持平的浮层只会呈现为一层没有立场的灰雾。*/
+  .liquid-glass-floating {
+    /* 0.94 时浮层几乎是实心白，完全透不出底下的东西。那个值是背景还平着、
+       面板只能靠拉高自身亮度才分得开时定的；背景有了色彩之后这个约束就松了，
+       降到这里既仍明显亮于页面，也真的能透出背后的色调。*/
+    background: rgba(255, 255, 255, 0.72);
+    /* 浅色页面上只靠亮度差不够——差值再大页面就不是浅色了。投影承担余下的
+       分离工作：近处一道紧的边影勾出轮廓，远处一片扩散影把面板抬起来。*/
+    box-shadow:
+      0 16px 40px -12px rgba(41, 37, 36, 0.26),
+      0 4px 10px -3px rgba(41, 37, 36, 0.12),
+      0 0 0 0.5px rgba(41, 37, 36, 0.06);
+  }
+
+  /* box-shadow 是整条覆盖的，所以这里要把基础态那道顶边高光重新带上，
+     否则深色浮层会丢掉勾轮廓的亮边。*/
+  .dark .liquid-glass-floating {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 12px 32px -10px rgba(0, 0, 0, 0.6),
+      0 2px 8px -3px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  }
+
+  /* Dock 只改填充的不透明度，其余（投影、边框、模糊）全部沿用 .liquid-glass
+     与 .liquid-glass-floating。0.72 那个值是按菜单与弹窗的需要定的——它们要在
+     任意内容之上托住文字，必须够实；Dock 没有文字要托，跟着做到近乎不透明，
+     就只是一块白板。透出多少底色由这一个值决定，和投影无关。*/
+  .liquid-glass-dock {
+    background: rgba(255, 255, 255, 0.4);
+  }
+
+  .dark .liquid-glass-dock {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* Launchpad 的全屏底板：模糊更重、透明度更低，盖住下方首页内容 */
+  .liquid-glass-scrim {
+    background: rgba(250, 250, 249, 0.42);
+    backdrop-filter: blur(56px) saturate(160%);
+    -webkit-backdrop-filter: blur(56px) saturate(160%);
+  }
+
+  .dark .liquid-glass-scrim {
+    background: rgba(12, 10, 9, 0.5);
+  }
+}
+
+@layer utilities {
+
+  /* Dock 图标的缩放由 rAF 直接写 --dock-scale，避免走 React 渲染 */
+  .dock-item {
+    transform-origin: bottom center;
+    transform: scale(var(--dock-scale, 1)) translateY(var(--dock-lift, 0px));
+    will-change: transform;
+  }
+
+  /* 指针离开 Dock 后回落用过渡收尾，跟手阶段则不加过渡 */
+  .dock-item-settling {
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .dock-open-dot {
+    box-shadow: 0 0 4px 0 rgba(41, 37, 36, 0.4);
+  }
+
+  .dark .dock-open-dot {
+    box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.8);
+  }
+
+  /* 堆栈展开：从 Dock 方向向上弹出 */
+  @keyframes stack-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.94);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  /* both 的填充模式是必需的：扇形里每一项用 animation-delay 依次入场，
+     没有它的话延迟期间会先按最终状态显示，然后才跳回起点重放。*/
+  .animate-stack-in {
+    animation: stack-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transform-origin: bottom center;
+  }
+
+  /* Launchpad 的开场分两层，这是它辨识度的来源：
+     底板只淡入，让桌面留在原处被压暗、被模糊，读作"盖上来的一层"而不是
+     "跳走的一页"；图标则从偏小处弹到原位，这个缩放差正是 macOS 启动台的
+     标志性动作。两层用同一时长但不同曲线。*/
+  @keyframes launchpad-scrim-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes launchpad-grid-in {
+    from {
+      opacity: 0;
+      transform: scale(0.86);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-launchpad-in {
+    animation: launchpad-scrim-in 180ms ease-out;
+  }
+
+  .animate-launchpad-grid {
+    animation: launchpad-grid-in 260ms cubic-bezier(0.16, 1.06, 0.3, 1) both;
+  }
+
+  /* 降低动态效果偏好：保留状态变化，去掉位移与缩放动画 */
+  @media (prefers-reduced-motion: reduce) {
+
+    .animate-stack-in,
+    .animate-launchpad-in {
+      animation: none;
+    }
+
+    .dock-item {
+      transform: none;
+    }
+  }
 }

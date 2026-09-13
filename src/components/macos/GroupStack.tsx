@@ -1,0 +1,169 @@
+import QuickLinkIcon from "@/components/QuickLinkIcon";
+import { useI18n } from "@/hooks/useI18n";
+import { FAN_ITEM_HEIGHT, stackGridColumns } from "@/lib/macosDock";
+import { ensureUrlHasProtocol } from "@/lib/url";
+import { cn } from "@/lib/utils";
+import LinkContextMenu, { type LinkActions } from "./LinkContextMenu";
+import LinkTile from "./LinkTile";
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
+
+/**
+ * 展开后的堆栈四周留一圈看不见的悬停余量。
+ *
+ * 扇形只有一列，很窄，而它与 Dock 之间还隔着 mb-6 的空档。指针从 Dock 往上
+ * 走不可能走直线，稍偏一点就掉出这一列，Dock 那边立刻算作"指针离开"，堆栈
+ * 跟着收起——想点上面某一项，半路它就没了。
+ *
+ * 这块透明区域是堆栈自己的 DOM 子节点，停在它上面仍算停在堆栈内。压在内容
+ * 之下，免得挡住链接本身的点击。
+ */
+function HoverBuffer() {
+  return <span aria-hidden className="absolute -inset-x-10 -bottom-9 -top-4 -z-10" />;
+}
+
+/** 扇形里图标的边长。行高就是图标高，所以和 fanCapacity 用的是同一个值。
+ *  favicon 多半是 16 或 32px 的位图，画得比源图大就会糊，所以压在 28。*/
+export const FAN_ICON_SIZE = FAN_ITEM_HEIGHT;
+
+interface GroupStackProps extends LinkActions {
+  group: QuickLinkGroup | null;
+  links: QuickLink[];
+  groups: QuickLinkGroup[];
+  /** 面板或图标列相对 Dock 容器的横向位置，由 DockBar 算好并已做边界收拢 */
+  anchorX: number;
+  /** 扇形里名称挂在图标的哪一侧，靠近屏幕左缘时翻到右侧 */
+  fanSide: "left" | "right";
+  /** 超过这个数量就从扇形切到网格。由 DockBar 按 Dock 上方的余量算出，
+   *  两边必须取同一个值，否则锚点会按另一种形态计算。*/
+  fanLimit: number;
+  onOpenLink: () => void;
+}
+
+/**
+ * Dock 分组展开后的堆栈。
+ *
+ * 链接少时用扇形：图标竖直排开，各自独立漂浮，没有容器面板，名称是挂在图标
+ * 旁边的独立药丸——这是 macOS 堆栈展开的实际形态。链接多了扇形会顶出屏幕，
+ * 这时切换到带面板的网格。
+ */
+export default function GroupStack({
+  group,
+  links,
+  groups,
+  anchorX,
+  fanSide,
+  fanLimit,
+  onCopy,
+  onMoveToGroup,
+  onRemove,
+  onOpenLink,
+}: GroupStackProps) {
+  const { t } = useI18n();
+  const groupName = group ? group.name : t("quickLinks.ungrouped");
+
+  if (links.length === 0) {
+    return (
+      // 收拢用的 -translate-x-1/2 必须和入场动画分处两层。animate-stack-in 的
+      // fill-mode 是 both，动画结束后 transform 仍由关键帧接管，写在同一个元素
+      // 上的位移会被整条覆盖掉——盒子于是以左缘而不是中心对齐锚点。
+      <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+        <HoverBuffer />
+        <div className="animate-stack-in liquid-glass liquid-glass-floating whitespace-nowrap rounded-full px-4 py-2 text-xs text-muted-foreground">
+          {t("dock.emptyGroup")}
+        </div>
+      </div>
+    );
+  }
+
+  // --- 扇形 ---------------------------------------------------------------
+  if (links.length <= fanLimit) {
+    const labelsLeft = fanSide === "left";
+
+    return (
+      <div
+        className="absolute bottom-full z-20 mb-6"
+        style={{
+          left: labelsLeft ? anchorX + FAN_ICON_SIZE / 2 : anchorX - FAN_ICON_SIZE / 2,
+          transform: labelsLeft ? "translateX(-100%)" : undefined,
+        }}
+      >
+        <HoverBuffer />
+        {/* flex-col-reverse 让第一个链接落在最靠近 Dock 的一端 */}
+        <div
+          className={cn(
+            "flex flex-col-reverse gap-3",
+            labelsLeft ? "items-end" : "items-start"
+          )}
+        >
+          {links.map((link, index) => (
+            <LinkContextMenu
+              key={link.id}
+              link={link}
+              groups={groups}
+              onCopy={onCopy}
+              onMoveToGroup={onMoveToGroup}
+              onRemove={onRemove}
+            >
+              <a
+                href={ensureUrlHasProtocol(link.url)}
+                title={link.name}
+                onClick={onOpenLink}
+                // 逐项延迟，展开时像依次弹出而不是整块出现
+                style={{ animationDelay: `${index * 35}ms` }}
+                className={cn(
+                  "group animate-stack-in flex items-center gap-2.5 outline-none",
+                  !labelsLeft && "flex-row-reverse"
+                )}
+              >
+                <span className="liquid-glass liquid-glass-floating max-w-[11rem] truncate rounded-full px-2.5 py-1 text-[11px] text-foreground">
+                  {link.name}
+                </span>
+                <span className="block transition-transform duration-200 group-hover:scale-110 group-focus-visible:scale-110">
+                  <QuickLinkIcon
+                    name={link.name}
+                    url={link.url}
+                    icon={link.icon}
+                    size={FAN_ICON_SIZE}
+                  />
+                </span>
+              </a>
+            </LinkContextMenu>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // --- 网格 ---------------------------------------------------------------
+  const columns = stackGridColumns(links.length);
+
+  return (
+    // 同上：位移留在外层，动画放进内层。两者写在一起时 translateX(-50%) 会被
+    // 关键帧的 transform 顶掉，面板整体右移半个身位，压根不在 Dock 图标上方。
+    <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+      <HoverBuffer />
+      <div className="animate-stack-in liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">
+        <div className="select-none px-1 pb-2 text-center text-[11px] font-medium tracking-wide text-muted-foreground">
+          {groupName}
+        </div>
+        <div
+          className="grid max-h-[52vh] gap-1 overflow-y-auto scrollbar-hide"
+          style={{ gridTemplateColumns: `repeat(${columns}, 5rem)` }}
+        >
+          {links.map((link) => (
+            <LinkTile
+              key={link.id}
+              link={link}
+              groups={groups}
+              iconSize={28}
+              onCopy={onCopy}
+              onMoveToGroup={onMoveToGroup}
+              onRemove={onRemove}
+              onOpen={onOpenLink}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

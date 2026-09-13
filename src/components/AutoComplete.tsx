@@ -675,7 +675,7 @@ const AutoComplete = ({ value, onChange, onSubmit, placeholder, className }: Aut
       {showSuggestions && suggestions.length > 0 && (
         <div
           ref={suggestionsRef}
-          className="absolute top-full left-0 right-0 mt-2 bg-popover rounded-xl shadow-xl border border-border z-50 max-h-96 overflow-y-auto"
+          className="liquid-glass liquid-glass-floating absolute top-full left-0 right-0 mt-2 rounded-2xl z-50 max-h-96 overflow-y-auto"
         >
           {suggestions.map((suggestion, index) => (
             <div

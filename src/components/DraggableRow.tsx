@@ -66,7 +66,7 @@ const DraggableRow = ({
         // 编辑模式下不应用拖拽属性，避免干扰中文输入法
         return (
             <div ref={setNodeRef} style={style}
-                className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-muted/30 overflow-hidden max-w-full">
+                className="flex items-center gap-3 px-3 py-2.5 border-b border-foreground/10 last:border-b-0 overflow-hidden max-w-full">
                 <div className={`flex-1 min-w-0 grid grid-cols-1 gap-2 ${groups.length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                     <Input
                         value={editingLink.name}
@@ -88,7 +88,7 @@ const DraggableRow = ({
                             value={editingLink.groupId}
                             onChange={(e) => onEditingLinkChange({ ...editingLink, groupId: e.target.value })}
                             disabled={isEditLoading}
-                            className="h-8 rounded-md border border-input bg-background px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="h-8 rounded-md border border-foreground/15 bg-black/[0.03] dark:bg-white/[0.05] px-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         >
                             <option value="">{t('quickLinks.ungrouped')}</option>
                             {sortedGroups.map(g => (
@@ -120,7 +120,7 @@ const DraggableRow = ({
 
     return (
         <div ref={setNodeRef} style={style}
-            className="flex items-center gap-3 px-3 py-2.5 border-b border-border last:border-b-0 bg-background overflow-hidden max-w-full">
+            className="flex items-center gap-3 px-3 py-2.5 border-b border-foreground/10 last:border-b-0 overflow-hidden max-w-full">
             <div {...attributes} {...listeners} className="drag-handle text-muted-foreground hover:text-foreground flex-shrink-0 touch-none">
                 <GripVertical className="h-4 w-4" />
             </div>

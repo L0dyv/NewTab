@@ -50,7 +50,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
   return (
     <div className="p-6 space-y-6">
       {/* 语言设置 */}
-      <div className="p-4 rounded-lg bg-muted/50 border border-border">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('language.title')}</h3>
         <div className="flex items-center justify-between">
           <div>
@@ -59,7 +59,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
           <select
             value={locale}
             onChange={(e) => setLocale(e.target.value as 'zh-CN' | 'en')}
-            className="px-3 py-1.5 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="px-3 py-1.5 rounded-md border border-foreground/10 bg-black/[0.03] dark:bg-white/[0.05] text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             {supportedLocales.map((loc) => (
               <option key={loc.value} value={loc.value}>{loc.label}</option>
@@ -69,7 +69,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
       </div>
 
       {/* 搜索行为设置 */}
-      <div className="p-4 rounded-lg bg-muted/50 border border-border">
+      <div className="p-4 rounded-lg border border-foreground/10">
         <h3 className="text-sm font-medium text-foreground mb-3">{t('generalSettings.searchBehavior')}</h3>
         <div className="flex items-center justify-between">
           <div>
@@ -83,7 +83,7 @@ export default function GeneralSettingsSection({ onSettingsChanged }: GeneralSet
               onChange={(e) => handleOpenInNewTabChange(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+            <div className="w-11 h-6 bg-black/[0.12] dark:bg-white/[0.18] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/10 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-stone-600 peer-checked:bg-foreground/70"></div>
           </label>
         </div>
       </div>

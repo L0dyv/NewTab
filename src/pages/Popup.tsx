@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Settings, Search, Plus, Check } from "lucide-react";
+import { Settings, Search, Plus, Check, ArrowRight } from "lucide-react";
 import AutoComplete from "@/components/AutoComplete";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, migrateLocalStorageToSync, setStoredValue } from "@/lib/storage";
@@ -386,7 +387,11 @@ export default function Popup() {
 
     return (
         <div
-            className="bg-background rounded-xl shadow-2xl overflow-hidden"
+            // 弹窗容器本身就是那扇窗，不是浮在内容上的玻璃面板：它背后是浏览器
+            // 的弹窗底，没有内容可透。所以这里用实底加色调起伏，玻璃留给窗内控件
+            // relative 是必需的：设置按钮是绝对定位的，没有它会相对视口摆放。
+            // 真实弹窗里视口恰好等于窗口尺寸，两者重合把这个问题盖住了
+            className="ambient-surface bg-background relative rounded-2xl overflow-hidden"
             style={{ width: "400px", height: popupHeight }}
         >
             <div className="p-4 h-full flex flex-col">
@@ -411,65 +416,80 @@ export default function Popup() {
                             onChange={setQuery}
                             onSubmit={handleSubmit}
                             placeholder={isKagiSelected ? t('index.kagiPlaceholder') : t('index.placeholder')}
-                            className="w-full h-11 text-sm px-10 pr-20 rounded-full bg-card border border-border text-foreground placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:ring-2 focus:ring-ring focus:border-transparent focus:outline-none transition-all duration-200"
+                            className="liquid-glass w-full h-11 text-sm px-10 pr-11 rounded-full text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:outline-none transition-all duration-200"
                         />
 
-                        {/* 搜索按钮 - V0 风格 */}
+                        {/* 与首页一致：左边的放大镜已说明这是搜索框，这里用箭头表示执行 */}
                         <Button
                             onClick={() => handleSubmit(query)}
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 h-7 px-3 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium shadow-sm hover:shadow-md transition-all duration-200"
+                            size="icon"
+                            variant="ghost"
+                            aria-label={isKagiSelected ? t('index.ask') : t('common.search')}
+                            className={cn(
+                                "absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 rounded-full transition-colors duration-200",
+                                query.trim()
+                                    ? "bg-foreground/85 text-background hover:bg-foreground"
+                                    : "text-muted-foreground/60 hover:bg-foreground/10 hover:text-foreground"
+                            )}
                         >
-                            {isKagiSelected ? t('index.ask') : t('common.search')}
+                            <ArrowRight className="h-3.5 w-3.5" />
                         </Button>
                     </div>
 
-                    {/* 搜索引擎选择 - V0 风格紧凑布局 */}
-                    <div className="flex items-center justify-center gap-1.5 flex-wrap mb-3">
+                    {/* 搜索引擎选择：与首页同款分段控件 */}
+                    <div className="mb-3 flex justify-center">
+                        <div className="inline-flex flex-wrap items-center justify-center gap-0.5">
                         {searchEngines.filter(e => e.enabled !== false).map((engine, index) => (
                             <button
                                 key={engine.id}
                                 type="button"
-                                className={`relative inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-all duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
-                                    ? "bg-primary text-primary-foreground shadow-sm"
-                                    : "text-stone-600 dark:text-stone-400 hover:bg-accent hover:text-foreground bg-transparent"
+                                className={`relative inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium transition-colors duration-200 cursor-pointer select-none border-0 outline-none focus:outline-none ${searchEngine === engine.id
+                                    ? "bg-foreground/[0.08] text-foreground"
+                                    : "text-muted-foreground hover:text-foreground bg-transparent"
                                     }`}
                                 onClick={() => handleSearchEngineChange(engine.id)}
                                 onMouseDown={(e) => e.preventDefault()}
                             >
-                                {/* 快捷键数字提示 */}
+                                {engine.name}
+                                {/* 与首页一致：快捷键作为名称后的一个淡号码，不做成浮标 */}
                                 {showShortcutHints && index < 9 && (
-                                    <span className="absolute -top-1.5 -right-0.5 flex items-center justify-center w-3.5 h-3.5 text-[9px] font-bold rounded-full bg-primary text-primary-foreground shadow-sm animate-in fade-in zoom-in-50 duration-150">
+                                    <span className="ml-0.5 text-[10px] font-normal tabular-nums text-muted-foreground/70 animate-in fade-in duration-150">
                                         {index + 1}
                                     </span>
                                 )}
-                                {engine.name}
                                 {engine.isAI && (
-                                    <span className="ml-0.5 text-[10px] bg-stone-200 dark:bg-stone-800 text-stone-700 dark:text-stone-300 px-1 py-0.5 rounded">AI</span>
+                                    <span className="rounded bg-foreground/10 px-1 py-0.5 text-[10px] leading-none text-foreground/70">AI</span>
                                 )}
                             </button>
                         ))}
+                        </div>
                     </div>
 
-                    {/* 快速链接 - V0 风格仅图标 */}
+                    {/* 快速链接。名称随图标一起显示，这里和首页是同一个问题：
+                        纯图标在 favicon 重复或过于相似时无法分辨 */}
                     {showQuickLinks && (
-                        <div className="grid grid-cols-4 gap-3 mt-auto">
+                        <div className="mt-auto grid grid-cols-4 gap-1">
                             {quickLinks.slice(0, 4).map((link) => (
-                                <div
+                                <button
                                     key={link.id}
-                                    className="flex items-center justify-center py-3 rounded-lg hover:bg-accent/50 transition-colors duration-200 group cursor-pointer"
+                                    type="button"
+                                    className="group flex flex-col items-center gap-1.5 rounded-xl px-1 py-2 transition-colors duration-150 hover:bg-foreground/[0.06] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     onClick={() => handleQuickLinkClick(link.url)}
                                     title={link.name}
                                 >
-                                    <div className="group-hover:scale-110 transition-transform duration-200">
+                                    <span className="block transition-transform duration-200 group-hover:scale-110">
                                         <QuickLinkIcon name={link.name} url={link.url} icon={link.icon} size={28} />
-                                    </div>
-                                </div>
+                                    </span>
+                                    <span className="w-full truncate text-center text-[10px] leading-none text-foreground/75">
+                                        {link.name}
+                                    </span>
+                                </button>
                             ))}
                         </div>
                     )}
 
                     {/* 添加当前页面按钮 */}
-                    <div className="mt-auto pt-2 border-t border-border">
+                    <div className="mt-auto border-t border-foreground/10 pt-2">
                         <div className="flex items-center justify-between gap-3 px-1 pb-2">
                             <p className="text-xs text-muted-foreground">
                                 {t('popup.openInNewTab')}
@@ -481,7 +501,7 @@ export default function Popup() {
                                     onChange={(e) => handlePopupOpenInNewTabChange(e.target.checked)}
                                     className="sr-only peer"
                                 />
-                                <div className="w-9 h-5 bg-stone-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer dark:bg-stone-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-stone-600 dark:peer-checked:bg-stone-400"></div>
+                                <div className="w-9 h-5 bg-black/[0.12] dark:bg-white/[0.18] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/10 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-foreground/70"></div>
                             </label>
                         </div>
                         <Button

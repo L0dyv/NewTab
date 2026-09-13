@@ -8,11 +8,14 @@ export const buttonVariants = cva(
                 default: "bg-primary text-primary-foreground hover:bg-primary/90",
                 destructive:
                     "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                // 这几个变体原本铺实色（bg-background / bg-secondary），在玻璃面板上
+                // 每一行都会印出一块白或一块灰，整页看起来就是灰白条纹。改成叠在
+                // 材质上的中性色，并且用中性黑白而不是偏暖的主题 token。
                 outline:
-                    "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+                    "border border-foreground/15 bg-black/[0.02] dark:bg-white/[0.04] hover:bg-black/[0.06] dark:hover:bg-white/[0.09]",
                 secondary:
-                    "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-                ghost: "hover:bg-accent hover:text-accent-foreground",
+                    "bg-black/[0.05] dark:bg-white/[0.08] text-foreground hover:bg-black/[0.08] dark:hover:bg-white/[0.12]",
+                ghost: "hover:bg-black/[0.05] dark:hover:bg-white/[0.08]",
                 link: "text-primary underline-offset-4 hover:underline",
             },
             size: {
