@@ -455,7 +455,7 @@ export default function DockBar({
       )}
 
       <div
-        className="liquid-glass liquid-glass-dock flex items-end gap-3.5 rounded-[24px] px-3.5 py-2.5"
+        className="liquid-glass liquid-glass-floating liquid-glass-dock flex items-end gap-3.5 rounded-[24px] px-3.5 py-2.5"
         onMouseMove={handlePointerMove}
         onMouseEnter={handleDockEnter}
       >
