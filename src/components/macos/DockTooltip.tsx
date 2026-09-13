@@ -16,19 +16,21 @@ interface DockTooltipProps {
  * 上来，名字要么被盖住、要么为了避让而提前消失，等于没有。下方没有东西跟它
  * 争位置，指着哪一项，哪一项的名字就一直在。
  * 放大是以底边为原点向上长的，所以图标不会向下侵入这里，留一点间距即可。
+ *
+ * Dock 距屏幕底边只有 20px，所以这个药丸要做得比别处紧凑，否则放不下。
  */
 export default function DockTooltip({ label, visible, className }: DockTooltipProps) {
   return (
     <div
       aria-hidden="true"
       className={cn(
-        "pointer-events-none absolute top-full left-1/2 z-30 mt-5 -translate-x-1/2",
+        "pointer-events-none absolute top-full left-1/2 z-30 mt-3 -translate-x-1/2",
         "transition-opacity duration-150",
         visible ? "opacity-100" : "opacity-0",
         className
       )}
     >
-      <span className="liquid-glass liquid-glass-floating block whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] leading-none text-foreground">
+      <span className="liquid-glass liquid-glass-floating block whitespace-nowrap rounded-md px-2 py-0.5 text-[10px] leading-none text-foreground">
         {label}
       </span>
     </div>

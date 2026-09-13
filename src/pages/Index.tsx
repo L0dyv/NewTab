@@ -570,9 +570,7 @@ const Index = () => {
       </div>
 
       {/* 底部 Dock：取代原来的顶部分组 Tab */}
-      {/* bottom-12 而不是更贴底：Dock 下方要留得下悬浮的分组名，那一行在
-          Dock 之外、屏幕之内。贴到 bottom-5 时只剩 20px，名字会被切掉。*/}
-      <div className="fixed inset-x-0 bottom-12 z-30 flex justify-center px-4">
+      <div className="fixed inset-x-0 bottom-5 z-30 flex justify-center px-4">
         <DockBar
           sections={dockSections}
           groups={quickLinkGroups}
