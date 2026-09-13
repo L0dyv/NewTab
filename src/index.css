@@ -58,7 +58,7 @@
     --ambient-tints:
       radial-gradient(58rem 44rem at 14% 12%, rgba(148, 166, 204, 0.15), transparent 66%),
       radial-gradient(52rem 40rem at 86% 16%, rgba(214, 182, 160, 0.13), transparent 64%),
-      radial-gradient(64rem 46rem at 50% 92%, rgba(158, 186, 194, 0.115), transparent 66%);
+      radial-gradient(64rem 46rem at 50% 92%, rgba(158, 186, 194, 0.16), transparent 66%);
 
     --sidebar-background: 60 9% 98%;
     --sidebar-foreground: 24 6% 45%;
@@ -320,6 +320,36 @@
       0 12px 32px -10px rgba(0, 0, 0, 0.6),
       0 2px 8px -3px rgba(0, 0, 0, 0.4),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  }
+
+  /* Dock 的材质与菜单、弹窗不同，所以不跟着 .liquid-glass-floating 走。
+     菜单要托住文字，填充必须够实；Dock 是一条家具，实心了就只是一块白板。
+     两者共用一套值时只能迁就可读性，于是 Dock 也被推到了近乎不透明。
+
+     还有一件事得说清楚：backdrop-filter 只能模糊"背后真的画了东西"的像素。
+     首页底部本身接近匀色，模糊匀色仍是匀色——填充降到 0 也透不出什么。所以
+     这里三件事一起做：填充降一半让底色真的透上来，saturate 调高把底下那点
+     冷色放大到看得见，再用顶边高光与底边暗边勾出片状——玻璃感主要来自边缘的
+     折射，而不是透过来的细节。*/
+  .liquid-glass-dock {
+    background: rgba(255, 255, 255, 0.48);
+    backdrop-filter: blur(28px) saturate(220%);
+    -webkit-backdrop-filter: blur(28px) saturate(220%);
+    box-shadow:
+      0 16px 40px -12px rgba(41, 37, 36, 0.24),
+      0 4px 10px -3px rgba(41, 37, 36, 0.1),
+      0 0 0 0.5px rgba(41, 37, 36, 0.05),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+      inset 0 -1px 0 0 rgba(41, 37, 36, 0.05);
+  }
+
+  .dark .liquid-glass-dock {
+    background: rgba(255, 255, 255, 0.07);
+    box-shadow:
+      0 12px 32px -10px rgba(0, 0, 0, 0.6),
+      0 2px 8px -3px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.14),
+      inset 0 -1px 0 0 rgba(0, 0, 0, 0.28);
   }
 
   /* Launchpad 的全屏底板：模糊更重、透明度更低，盖住下方首页内容 */
