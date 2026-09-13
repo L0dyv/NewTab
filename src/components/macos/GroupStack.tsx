@@ -7,6 +7,20 @@ import LinkContextMenu, { type LinkActions } from "./LinkContextMenu";
 import LinkTile from "./LinkTile";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
+/**
+ * 展开后的堆栈四周留一圈看不见的悬停余量。
+ *
+ * 扇形只有一列，很窄，而它与 Dock 之间还隔着 mb-6 的空档。指针从 Dock 往上
+ * 走不可能走直线，稍偏一点就掉出这一列，Dock 那边立刻算作"指针离开"，堆栈
+ * 跟着收起——想点上面某一项，半路它就没了。
+ *
+ * 这块透明区域是堆栈自己的 DOM 子节点，停在它上面仍算停在堆栈内。压在内容
+ * 之下，免得挡住链接本身的点击。
+ */
+function HoverBuffer() {
+  return <span aria-hidden className="absolute -inset-x-10 -bottom-9 -top-4 -z-10" />;
+}
+
 /** 扇形里图标的边长。行高就是图标高，所以和 fanCapacity 用的是同一个值。
  *  favicon 多半是 16 或 32px 的位图，画得比源图大就会糊，所以压在 28。*/
 export const FAN_ICON_SIZE = FAN_ITEM_HEIGHT;
@@ -53,6 +67,7 @@ export default function GroupStack({
       // fill-mode 是 both，动画结束后 transform 仍由关键帧接管，写在同一个元素
       // 上的位移会被整条覆盖掉——盒子于是以左缘而不是中心对齐锚点。
       <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+        <HoverBuffer />
         <div className="animate-stack-in liquid-glass liquid-glass-floating whitespace-nowrap rounded-full px-4 py-2 text-xs text-muted-foreground">
           {t("dock.emptyGroup")}
         </div>
@@ -72,6 +87,7 @@ export default function GroupStack({
           transform: labelsLeft ? "translateX(-100%)" : undefined,
         }}
       >
+        <HoverBuffer />
         {/* flex-col-reverse 让第一个链接落在最靠近 Dock 的一端 */}
         <div
           className={cn(
@@ -125,6 +141,7 @@ export default function GroupStack({
     // 同上：位移留在外层，动画放进内层。两者写在一起时 translateX(-50%) 会被
     // 关键帧的 transform 顶掉，面板整体右移半个身位，压根不在 Dock 图标上方。
     <div className="absolute bottom-full z-20 mb-6 -translate-x-1/2" style={{ left: anchorX }}>
+      <HoverBuffer />
       <div className="animate-stack-in liquid-glass liquid-glass-floating rounded-2xl px-3 pb-3 pt-2">
         <div className="select-none px-1 pb-2 text-center text-[11px] font-medium tracking-wide text-muted-foreground">
           {groupName}

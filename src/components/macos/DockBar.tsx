@@ -32,7 +32,8 @@ const MAGNIFY_LIFT = 10;
 
 /** 悬浮多久后自动展开堆栈；已有堆栈打开时切换是即时的 */
 const HOVER_OPEN_DELAY = 180;
-const HOVER_CLOSE_DELAY = 220;
+/** 离开后多久收起。给得短，指针从 Dock 往上走时稍微偏一点就会被判成离开。 */
+const HOVER_CLOSE_DELAY = 360;
 
 /** 与 GroupStack 网格的实际排版保持一致，用于把面板收拢进视口 */
 const STACK_CELL = 80;
@@ -334,14 +335,32 @@ export default function DockBar({
     [closeStack, onOpenLaunchpad]
   );
 
+  // 延迟收起，且到点时再确认一次，而不是一到点就收。要绕开两种情况：
+  //
+  // 一是指针停在从堆栈里唤出的右键菜单上。菜单是 Portal 到 body 的，从 Dock
+  // 的角度看指针早就"离开"了，于是堆栈到点收起、菜单随父级一起卸载——用户
+  // 点下去的那一项永远执行不到。菜单还开着就一直往后排。
+  //
+  // 二是指针绕了一圈又回来了。mouseenter 会清掉计时器，但边界附近的抖动可能
+  // 在两者之间漏过去，所以到点时再用 :hover 复核一次。
+  const scheduleClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (document.querySelector('[role="menu"]')) {
+        scheduleClose();
+        return;
+      }
+      if (wrapperRef.current?.matches(":hover")) return;
+      closeStack();
+    }, HOVER_CLOSE_DELAY);
+  };
+
   const handleWrapperLeave = () => {
     handleDockLeave();
     clearTimers();
     if (pinned) return; // 点开的堆栈要一直留着，直到点别处或切到另一组
-    closeTimerRef.current = setTimeout(() => {
-      closeTimerRef.current = null;
-      closeStack();
-    }, HOVER_CLOSE_DELAY);
+    scheduleClose();
   };
 
   const handleWrapperEnter = () => {
