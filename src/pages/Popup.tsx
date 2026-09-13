@@ -1,16 +1,24 @@
 import { useEffect, useState } from "react";
-import { Settings, Search, Plus, Check, ArrowRight } from "lucide-react";
+import { Settings, Search, Plus, Check, ArrowRight, ChevronDown, FolderInput } from "lucide-react";
 import AutoComplete from "@/components/AutoComplete";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/hooks/useTheme";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, migrateLocalStorageToSync, setStoredValue } from "@/lib/storage";
+import { sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
 import QuickLinkIcon from "@/components/QuickLinkIcon";
 import { useI18n } from "@/hooks/useI18n";
-import type { QuickLink } from "@/lib/types";
+import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 export default function Popup() {
     const { t } = useI18n();
@@ -58,6 +66,17 @@ export default function Popup() {
         return [];
     });
 
+    // 分组只用来给"收藏到哪一组"列菜单，不参与 popup 的其他显示
+    const [quickLinkGroups, setQuickLinkGroups] = useState<QuickLinkGroup[]>(() => {
+        try {
+            const saved = localStorage.getItem('quickLinkGroups');
+            if (saved) return JSON.parse(saved);
+        } catch {
+            /* ignore */
+        }
+        return [];
+    });
+
     const [searchEngine, setSearchEngine] = useState(() => {
         try {
             const saved = localStorage.getItem('currentSearchEngine');
@@ -87,9 +106,10 @@ export default function Popup() {
             ]);
 
             const fallbackEngineId = defaultSearchEngines.find(e => e.isDefault)?.id || "google";
-            const [storedEngines, storedLinks, storedEngineId] = await Promise.all([
+            const [storedEngines, storedLinks, storedGroups, storedEngineId] = await Promise.all([
                 getStoredValue<SearchEngine[]>('searchEngines', defaultSearchEngines),
                 getStoredValue<QuickLink[]>('quickLinks', []),
+                getStoredValue<QuickLinkGroup[]>('quickLinkGroups', []),
                 getStoredValue<string>('currentSearchEngine', fallbackEngineId),
             ]);
 
@@ -102,6 +122,7 @@ export default function Popup() {
                 .map((link) => ({ ...link, enabled: link.enabled !== false }))
                 .filter((link) => link.enabled);
             setQuickLinks(normalizedLinks);
+            setQuickLinkGroups(storedGroups);
 
             if (storedEngineId) {
                 setSearchEngine(storedEngineId);
@@ -117,9 +138,10 @@ export default function Popup() {
     useEffect(() => {
         const rehydrate = async () => {
             const fallbackEngineId = defaultSearchEngines.find(e => e.isDefault)?.id || "google";
-            const [storedEngines, storedLinks, storedEngineId] = await Promise.all([
+            const [storedEngines, storedLinks, storedGroups, storedEngineId] = await Promise.all([
                 getStoredValue<SearchEngine[]>('searchEngines', defaultSearchEngines),
                 getStoredValue<QuickLink[]>('quickLinks', []),
+                getStoredValue<QuickLinkGroup[]>('quickLinkGroups', []),
                 getStoredValue<string>('currentSearchEngine', fallbackEngineId),
             ]);
 
@@ -130,6 +152,7 @@ export default function Popup() {
                 .map((link) => ({ ...link, enabled: link.enabled !== false }))
                 .filter((link) => link.enabled);
             setQuickLinks(normalizedLinks);
+            setQuickLinkGroups(storedGroups);
 
             if (storedEngineId) {
                 setSearchEngine(storedEngineId);
@@ -249,7 +272,7 @@ export default function Popup() {
     };
 
     // 添加当前页面到快速链接
-    const [addStatus, setAddStatus] = useState<'idle' | 'added' | 'exists'>('idle');
+    const [addStatus, setAddStatus] = useState<'idle' | 'added' | 'exists' | 'moved'>('idle');
     const [currentTabUrl, setCurrentTabUrl] = useState<string | null>(null);
 
     useEffect(() => {
@@ -271,7 +294,10 @@ export default function Popup() {
             void 0;
         }
     };
-    const handleAddCurrentPage = async () => {
+    /**
+     * 收藏当前页面。groupId 省略即落入未分组，与加入分组这个功能之前的行为一致。
+     */
+    const handleAddCurrentPage = async (groupId?: string) => {
         if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) return;
 
         chrome.runtime.sendMessage({ type: "GET_CURRENT_TAB" }, async (res: unknown) => {
@@ -281,9 +307,30 @@ export default function Popup() {
 
             // 检查是否已存在
             const existingLinks = await getStoredValue<QuickLink[]>('quickLinks', []);
-            const exists = existingLinks.some(link => link.url === response.url);
-            if (exists) {
-                setAddStatus('exists');
+            const existing = existingLinks.find(link => link.url === response.url);
+            if (existing) {
+                // 已经在用户挑的这一组里了，什么都不用做
+                if (existing.groupId === groupId) {
+                    setAddStatus('exists');
+                    setTimeout(() => setAddStatus('idle'), 2000);
+                    return;
+                }
+
+                // 在别的组里。用户特地点开菜单挑了一组，这是一次明确的意图，
+                // 只回一句"已存在"就把它丢掉了——链接仍躺在原处，而 popup 里
+                // 没有任何地方能让他看出这件事。所以按他挑的改，并说清楚这次
+                // 是"移动"而不是"新增"。
+                const moved = existingLinks.map(link =>
+                    link.id === existing.id ? { ...link, groupId } : link
+                );
+                await setStoredValue('quickLinks', moved);
+                setQuickLinks(moved.filter(l => l.enabled));
+
+                if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+                    chrome.runtime.sendMessage({ type: 'QUICK_LINKS_UPDATED' });
+                }
+
+                setAddStatus('moved');
                 setTimeout(() => setAddStatus('idle'), 2000);
                 return;
             }
@@ -293,6 +340,7 @@ export default function Popup() {
                 id: `link-${Date.now()}`,
                 name: response.title || new URL(response.url).hostname,
                 url: response.url,
+                groupId,
                 enabled: true,
             };
             const updated = [...existingLinks, newLink];
@@ -504,20 +552,65 @@ export default function Popup() {
                                 <div className="w-9 h-5 bg-black/[0.12] dark:bg-white/[0.18] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-ring rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black/10 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-stone-600 peer-checked:bg-foreground/70"></div>
                             </label>
                         </div>
-                        <Button
-                            variant="ghost"
-                            onClick={handleAddCurrentPage}
-                            disabled={addStatus !== 'idle'}
-                            className="w-full h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
-                        >
-                            {addStatus === 'added' ? (
-                                <><Check className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.added')}</>
-                            ) : addStatus === 'exists' ? (
-                                <>{t('popup.exists')}</>
-                            ) : (
-                                <><Plus className="h-3.5 w-3.5 mr-1.5" />{t('popup.addPage')}</>
-                            )}
-                        </Button>
+                        {/* 有分组时按钮变成菜单的入口：一级是"收藏"这个动作，二级是
+                            收藏到哪一组。没有分组就退回普通按钮，一次点击直接收藏，
+                            和加入分组这个功能之前完全一样——不该为了一个空菜单多一次点击。*/}
+                        {quickLinkGroups.length > 0 ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        disabled={addStatus !== 'idle'}
+                                        className="w-full h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
+                                    >
+                                        {addStatus === 'added' ? (
+                                            <><Check className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.added')}</>
+                                        ) : addStatus === 'moved' ? (
+                                            <><FolderInput className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.moved')}</>
+                                        ) : addStatus === 'exists' ? (
+                                            <>{t('popup.exists')}</>
+                                        ) : (
+                                            <>
+                                                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                                {t('popup.addPage')}
+                                                <ChevronDown className="h-3.5 w-3.5 ml-1.5 opacity-60" />
+                                            </>
+                                        )}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="center" className="w-52">
+                                    <DropdownMenuItem onClick={() => handleAddCurrentPage()}>
+                                        {t('contextMenu.ungrouped')}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {sortQuickLinkGroups(quickLinkGroups).map((group) => (
+                                        <DropdownMenuItem
+                                            key={group.id}
+                                            onClick={() => handleAddCurrentPage(group.id)}
+                                        >
+                                            {group.name}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Button
+                                variant="ghost"
+                                onClick={() => handleAddCurrentPage()}
+                                disabled={addStatus !== 'idle'}
+                                className="w-full h-9 text-xs text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
+                            >
+                                {addStatus === 'added' ? (
+                                    <><Check className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.added')}</>
+                                ) : addStatus === 'moved' ? (
+                                    <><FolderInput className="h-3.5 w-3.5 mr-1.5 text-stone-500" />{t('popup.moved')}</>
+                                ) : addStatus === 'exists' ? (
+                                    <>{t('popup.exists')}</>
+                                ) : (
+                                    <><Plus className="h-3.5 w-3.5 mr-1.5" />{t('popup.addPage')}</>
+                                )}
+                            </Button>
+                        )}
                         {currentTabUrl && (
                             <div className="mt-1.5 px-2 text-[11px] text-muted-foreground flex items-center gap-1">
                                 <span className="flex-shrink-0">{t('popup.addPageUrl')}</span>
