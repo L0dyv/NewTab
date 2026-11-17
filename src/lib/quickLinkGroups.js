@@ -18,6 +18,22 @@ export function applyQuickLinkEdit(links, editingId, draft) {
   );
 }
 
+export function renameQuickLink(links, linkId, name) {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) {
+    return links;
+  }
+
+  return links.map((link) =>
+    link.id === linkId && link.name !== trimmed
+      ? {
+          ...link,
+          name: trimmed,
+        }
+      : link
+  );
+}
+
 export function renameQuickLinkGroup(groups, groupId, name) {
   return groups.map((group) =>
     group.id === groupId

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Copy, FolderInput, Trash2 } from "lucide-react";
+import { useRef, type ReactNode } from "react";
+import { Copy, FolderInput, Pencil, Trash2 } from "lucide-react";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -15,15 +15,17 @@ import { sortQuickLinkGroups } from "@/lib/quickLinkGroups";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 export interface LinkActions {
+  onRename: (linkId: string, name: string) => void;
   onCopy: (url: string) => void;
   onMoveToGroup: (linkId: string, groupId: string | undefined) => void;
   onRemove: (linkId: string) => void;
 }
 
-interface LinkContextMenuProps extends LinkActions {
+interface LinkContextMenuProps extends Omit<LinkActions, "onRename"> {
   link: QuickLink;
   groups: QuickLinkGroup[];
   children: ReactNode;
+  onStartRename: () => void;
 }
 
 /**
@@ -34,17 +36,38 @@ export default function LinkContextMenu({
   link,
   groups,
   children,
+  onStartRename,
   onCopy,
   onMoveToGroup,
   onRemove,
 }: LinkContextMenuProps) {
   const { t } = useI18n();
   const hasAnyGroup = groups.length > 0;
+  const renamingRef = useRef(false);
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent
+        onCloseAutoFocus={(e) => {
+          // 菜单退场动画结束后 Radix 默认会把焦点还给触发器（或打开菜单前聚焦
+          // 的筛选框），那会让刚打开的重命名输入框立刻失焦并提前收起。
+          if (renamingRef.current) {
+            e.preventDefault();
+            renamingRef.current = false;
+          }
+        }}
+      >
+        <ContextMenuItem
+          onSelect={() => {
+            renamingRef.current = true;
+            onStartRename();
+          }}
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          {t("contextMenu.rename")}
+        </ContextMenuItem>
+
         <ContextMenuItem onClick={() => onCopy(link.url)}>
           <Copy className="mr-2 h-4 w-4" />
           {t("contextMenu.copyLink")}

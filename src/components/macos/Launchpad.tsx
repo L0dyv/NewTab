@@ -15,6 +15,7 @@ interface LaunchpadProps {
   sections: { group: QuickLinkGroup | null; links: QuickLink[] }[];
   groups: QuickLinkGroup[];
   onClose: () => void;
+  onRenameLink: (linkId: string, name: string) => void;
   onCopy: (url: string) => void;
   onMoveToGroup: (linkId: string, groupId: string | undefined) => void;
   onRemoveLink: (linkId: string) => void;
@@ -28,6 +29,7 @@ export default function Launchpad({
   sections,
   groups,
   onClose,
+  onRenameLink,
   onCopy,
   onMoveToGroup,
   onRemoveLink,
@@ -66,9 +68,13 @@ export default function Launchpad({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
       if (e.key === "ArrowRight") {
@@ -130,7 +136,15 @@ export default function Launchpad({
         // 启动台盖在桌面上，点它之外的地方就退回去。"之外"指内容区以外的留白：
         // 网格、筛选框、页码这些是启动台自己的地盘，在它们内部（包括图标之间的
         // 空隙）点击不应该退出，否则想点图标稍微偏一点就把整个面板关掉了。
-        if (!target.closest("[data-launchpad-surface], a, button, input")) onClose();
+        if (!target.closest("[data-launchpad-surface], a, button, input")) {
+          if (
+            document.activeElement instanceof HTMLElement &&
+            e.currentTarget.contains(document.activeElement)
+          ) {
+            document.activeElement.blur();
+          }
+          onClose();
+        }
       }}
     >
       {/* 筛选框与网格算作同一块，一起在视口里居中。把筛选框钉在顶部、只让网格
@@ -212,6 +226,7 @@ export default function Launchpad({
                       groups={groups}
                       iconSize={32}
                       className="w-[7.5rem] shrink-0"
+                      onRename={onRenameLink}
                       onCopy={onCopy}
                       onMoveToGroup={onMoveToGroup}
                       onRemove={onRemoveLink}

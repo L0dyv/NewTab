@@ -185,6 +185,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'quickLinks.group': '分组',
 
         // 右键菜单
+        'contextMenu.rename': '重命名',
         'contextMenu.copyLink': '复制链接地址',
         'contextMenu.delete': '删除',
         'contextMenu.moveToGroup': '移动到分组',
@@ -377,6 +378,7 @@ const messages: Record<Locale, Record<string, string>> = {
         'quickLinks.group': 'Group',
 
         // Context menu
+        'contextMenu.rename': 'Rename',
         'contextMenu.copyLink': 'Copy Link',
         'contextMenu.delete': 'Delete',
         'contextMenu.moveToGroup': 'Move to Group',

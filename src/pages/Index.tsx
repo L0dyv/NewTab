@@ -8,7 +8,7 @@ import SettingsModal from "@/components/SettingsModal";
 import UnifiedSettings from "@/components/UnifiedSettings";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, setStoredValue, migrateLocalStorageToSync } from "@/lib/storage";
-import { deleteQuickLinkGroup, renameQuickLinkGroup } from "@/lib/quickLinkGroups";
+import { deleteQuickLinkGroup, renameQuickLink, renameQuickLinkGroup } from "@/lib/quickLinkGroups";
 import { buildDockSections } from "@/lib/macosDock";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
@@ -362,6 +362,11 @@ const Index = () => {
     ));
   };
 
+  // 重命名快速链接显示名称
+  const renameLink = (linkId: string, name: string) => {
+    setQuickLinks(links => renameQuickLink(links, linkId, name));
+  };
+
   const addGroup = (name: string) => {
     const maxOrder = quickLinkGroups.reduce((max, g) => Math.max(max, g.order), -1);
     setQuickLinkGroups([...quickLinkGroups, { id: `group-${Date.now()}`, name, order: maxOrder + 1 }]);
@@ -582,6 +587,7 @@ const Index = () => {
             setLaunchpadScope(scope ?? null);
             setShowLaunchpad(true);
           }}
+          onRenameLink={renameLink}
           onCopy={copyToClipboard}
           onMoveToGroup={moveToGroup}
           onRemoveLink={confirmRemoveQuickLink}
@@ -597,6 +603,7 @@ const Index = () => {
             setShowLaunchpad(false);
             setLaunchpadScope(null);
           }}
+          onRenameLink={renameLink}
           onCopy={copyToClipboard}
           onMoveToGroup={moveToGroup}
           onRemoveLink={confirmRemoveQuickLink}

@@ -61,6 +61,7 @@ interface DockBarProps {
   onDeleteGroup: (groupId: string) => void;
   /** scope 为分组 key 时只展示该组，省略则展示全部 */
   onOpenLaunchpad: (scope?: string) => void;
+  onRenameLink: (linkId: string, name: string) => void;
   onCopy: (url: string) => void;
   onMoveToGroup: (linkId: string, groupId: string | undefined) => void;
   onRemoveLink: (linkId: string) => void;
@@ -80,6 +81,7 @@ export default function DockBar({
   onRenameGroup,
   onDeleteGroup,
   onOpenLaunchpad,
+  onRenameLink,
   onCopy,
   onMoveToGroup,
   onRemoveLink,
@@ -92,6 +94,7 @@ export default function DockBar({
   const pointerXRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const suppressRef = useRef(false);
+  const editingLinkCountRef = useRef(0);
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -289,9 +292,22 @@ export default function DockBar({
     }
   };
 
+  const handleEditingLinkChange = useCallback((editing: boolean) => {
+    editingLinkCountRef.current = Math.max(
+      0,
+      editingLinkCountRef.current + (editing ? 1 : -1)
+    );
+    if (editing) {
+      clearTimers();
+      // 开始改名时把堆栈固定住：用户打字期间往往会把指针移开以免挡字，改完按
+      // 回车也希望能立刻看到新名称，不该因为指针不在上面就把面板收走。
+      setPinned(true);
+    }
+  }, []);
+
   const handleHover = useCallback(
     (key: string) => {
-      if (suppressRef.current) return;
+      if (suppressRef.current || editingLinkCountRef.current > 0) return;
       clearTimers();
 
       // 点开的堆栈只认下一次点击。否则点完之后手一顺势划开，途中扫过任何一个
@@ -347,7 +363,7 @@ export default function DockBar({
     if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
     closeTimerRef.current = setTimeout(() => {
       closeTimerRef.current = null;
-      if (document.querySelector('[role="menu"]')) {
+      if (editingLinkCountRef.current > 0 || document.querySelector('[role="menu"]')) {
         scheduleClose();
         return;
       }
@@ -383,9 +399,19 @@ export default function DockBar({
       // 时就收起，菜单随之卸载，那一下点击走不到自己的处理函数。
       if (target?.closest?.('[role="menu"], [data-radix-popper-content-wrapper]')) return;
 
+      // pointerdown 早于浏览器的焦点转移；直接卸载堆栈会导致正在编辑的输入框
+      // 来不及触发 React 的 onBlur，先把焦点移出以提交草稿。
+      if (
+        document.activeElement instanceof HTMLElement &&
+        wrapperRef.current?.contains(document.activeElement)
+      ) {
+        document.activeElement.blur();
+      }
+
       closeStack();
     };
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (e.key === "Escape") closeStack();
     };
 
@@ -466,10 +492,12 @@ export default function DockBar({
           anchorX={anchorX}
           fanSide={fanSide}
           fanLimit={fanLimit}
+          onRename={onRenameLink}
           onCopy={onCopy}
           onMoveToGroup={onMoveToGroup}
           onRemove={onRemoveLink}
           onOpenLink={closeStack}
+          onEditingChange={handleEditingLinkChange}
         />
       )}
 

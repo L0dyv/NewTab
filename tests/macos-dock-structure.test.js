@@ -8,6 +8,8 @@ const read = (relative) => fs.readFileSync(path.join(__dirname, relative), "utf8
 
 const dockBar = read("../src/components/macos/DockBar.tsx");
 const dockGroupItem = read("../src/components/macos/DockGroupItem.tsx");
+const groupStack = read("../src/components/macos/GroupStack.tsx");
+const linkContextMenu = read("../src/components/macos/LinkContextMenu.tsx");
 const css = read("../src/index.css");
 
 // --- 两个 transform 必须分开挂 ---------------------------------------------
@@ -116,6 +118,36 @@ const css = read("../src/index.css");
     css,
     /@media \(prefers-reduced-motion: reduce\)/,
     "animations respect the reduced motion preference"
+  );
+}
+
+// --- Dock 内快速链接重命名的焦点与堆栈保护 ---------------------------------
+
+{
+  assert.match(
+    linkContextMenu,
+    /contextMenu\.rename/,
+    "link context menu exposes a rename item"
+  );
+  assert.match(
+    linkContextMenu,
+    /onCloseAutoFocus=/,
+    "link context menu suppresses Radix close autofocus when entering rename mode"
+  );
+  assert.match(
+    dockBar,
+    /editingLinkCountRef\.current > 0/,
+    "DockBar holds the stack open and ignores hover switches while a link is being renamed"
+  );
+
+  // 扇形项切换编辑态时内部节点会在 <a> 和 <div> 之间切换，animate-stack-in 必须留
+  // 在始终不卸载的外层上，否则进入和退出重命名都会把该项重放一次入场动画。
+  const anchorBlock = groupStack.match(/<a\s+href=[\s\S]*?<\/a>/);
+  assert.ok(anchorBlock, "fan link still renders an anchor in view mode");
+  assert.doesNotMatch(
+    anchorBlock[0],
+    /animate-stack-in/,
+    "fan link anchor must not carry animate-stack-in directly"
   );
 }
 

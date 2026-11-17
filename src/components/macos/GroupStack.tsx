@@ -5,6 +5,7 @@ import { ensureUrlHasProtocol } from "@/lib/url";
 import { cn } from "@/lib/utils";
 import LinkContextMenu, { type LinkActions } from "./LinkContextMenu";
 import LinkTile from "./LinkTile";
+import { useInlineLinkRename } from "./useInlineLinkRename";
 import type { QuickLink, QuickLinkGroup } from "@/lib/types";
 
 /**
@@ -37,6 +38,111 @@ interface GroupStackProps extends LinkActions {
    *  两边必须取同一个值，否则锚点会按另一种形态计算。*/
   fanLimit: number;
   onOpenLink: () => void;
+  onEditingChange?: (editing: boolean) => void;
+}
+
+interface FanLinkItemProps extends LinkActions {
+  link: QuickLink;
+  groups: QuickLinkGroup[];
+  index: number;
+  labelsLeft: boolean;
+  onOpenLink: () => void;
+  onEditingChange?: (editing: boolean) => void;
+}
+
+function FanLinkItem({
+  link,
+  groups,
+  index,
+  labelsLeft,
+  onRename,
+  onCopy,
+  onMoveToGroup,
+  onRemove,
+  onOpenLink,
+  onEditingChange,
+}: FanLinkItemProps) {
+  const {
+    isRenaming,
+    draftName,
+    setDraftName,
+    inputRef,
+    startRename,
+    commitRename,
+    handleKeyDown,
+  } = useInlineLinkRename({ link, onRename, onEditingChange });
+
+  const icon = (
+    <span
+      className={cn(
+        "block transition-transform duration-200",
+        !isRenaming && "group-hover:scale-110 group-focus-visible:scale-110"
+      )}
+    >
+      <QuickLinkIcon
+        name={link.name}
+        url={link.url}
+        icon={link.icon}
+        size={FAN_ICON_SIZE}
+      />
+    </span>
+  );
+
+  // 入场动画挂在始终不卸载的外层上：切换编辑态时内部从 <a> 换成 <div>，若动画
+  // 直接写在内部节点上，进入与退出重命名都会把该项重新弹一次。
+  return (
+    <div
+      style={{ animationDelay: `${index * 35}ms` }}
+      className="animate-stack-in"
+    >
+      <LinkContextMenu
+        link={link}
+        groups={groups}
+        onStartRename={startRename}
+        onCopy={onCopy}
+        onMoveToGroup={onMoveToGroup}
+        onRemove={onRemove}
+      >
+        {isRenaming ? (
+          <div
+            className={cn(
+              "flex items-center gap-2.5",
+              !labelsLeft && "flex-row-reverse"
+            )}
+          >
+            <input
+              ref={inputRef}
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={handleKeyDown}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.stopPropagation()}
+              aria-label={link.name}
+              className="liquid-glass liquid-glass-floating h-[26px] w-[11rem] rounded-full px-2.5 text-[11px] leading-none text-foreground outline-none focus:ring-1 focus:ring-ring"
+            />
+            {icon}
+          </div>
+        ) : (
+          <a
+            href={ensureUrlHasProtocol(link.url)}
+            title={link.name}
+            onClick={onOpenLink}
+            className={cn(
+              "group flex items-center gap-2.5 outline-none",
+              !labelsLeft && "flex-row-reverse"
+            )}
+          >
+            <span className="liquid-glass liquid-glass-floating max-w-[11rem] truncate rounded-full px-2.5 py-1 text-[11px] text-foreground">
+              {link.name}
+            </span>
+            {icon}
+          </a>
+        )}
+      </LinkContextMenu>
+    </div>
+  );
 }
 
 /**
@@ -53,10 +159,12 @@ export default function GroupStack({
   anchorX,
   fanSide,
   fanLimit,
+  onRename,
   onCopy,
   onMoveToGroup,
   onRemove,
   onOpenLink,
+  onEditingChange,
 }: GroupStackProps) {
   const { t } = useI18n();
   const groupName = group ? group.name : t("quickLinks.ungrouped");
@@ -96,38 +204,19 @@ export default function GroupStack({
           )}
         >
           {links.map((link, index) => (
-            <LinkContextMenu
+            <FanLinkItem
               key={link.id}
               link={link}
               groups={groups}
+              index={index}
+              labelsLeft={labelsLeft}
+              onRename={onRename}
               onCopy={onCopy}
               onMoveToGroup={onMoveToGroup}
               onRemove={onRemove}
-            >
-              <a
-                href={ensureUrlHasProtocol(link.url)}
-                title={link.name}
-                onClick={onOpenLink}
-                // 逐项延迟，展开时像依次弹出而不是整块出现
-                style={{ animationDelay: `${index * 35}ms` }}
-                className={cn(
-                  "group animate-stack-in flex items-center gap-2.5 outline-none",
-                  !labelsLeft && "flex-row-reverse"
-                )}
-              >
-                <span className="liquid-glass liquid-glass-floating max-w-[11rem] truncate rounded-full px-2.5 py-1 text-[11px] text-foreground">
-                  {link.name}
-                </span>
-                <span className="block transition-transform duration-200 group-hover:scale-110 group-focus-visible:scale-110">
-                  <QuickLinkIcon
-                    name={link.name}
-                    url={link.url}
-                    icon={link.icon}
-                    size={FAN_ICON_SIZE}
-                  />
-                </span>
-              </a>
-            </LinkContextMenu>
+              onOpenLink={onOpenLink}
+              onEditingChange={onEditingChange}
+            />
           ))}
         </div>
       </div>
@@ -156,10 +245,12 @@ export default function GroupStack({
               link={link}
               groups={groups}
               iconSize={28}
+              onRename={onRename}
               onCopy={onCopy}
               onMoveToGroup={onMoveToGroup}
               onRemove={onRemove}
               onOpen={onOpenLink}
+              onEditingChange={onEditingChange}
             />
           ))}
         </div>

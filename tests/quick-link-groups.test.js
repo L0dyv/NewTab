@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   updateQuickLinkDraft,
   applyQuickLinkEdit,
+  renameQuickLink,
   renameQuickLinkGroup,
   deleteQuickLinkGroup,
   reorderQuickLinkGroups,
@@ -165,5 +166,30 @@ assert.deepEqual(
     },
   ]
 );
+
+assert.deepEqual(
+  renameQuickLink(links, "link-2", "  Beta Home  "),
+  [
+    links[0],
+    {
+      id: "link-2",
+      name: "Beta Home",
+      url: "https://beta.example.com",
+      enabled: true,
+      groupId: "group-b",
+    },
+  ]
+);
+
+assert.equal(
+  renameQuickLink(links, "link-2", "   "),
+  links,
+  "blank link names are rejected without mutating or cloning"
+);
+
+{
+  const unchanged = renameQuickLink(links, "link-2", "  Beta ");
+  assert.equal(unchanged[1], links[1], "unchanged trimmed name preserves item identity");
+}
 
 console.log("[PASS] quick link groups tests");
