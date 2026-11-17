@@ -5,6 +5,7 @@ import {
   applyQuickLinkEdit,
   renameQuickLink,
   renameQuickLinkGroup,
+  setQuickLinkGroupIcon,
   deleteQuickLinkGroup,
   reorderQuickLinkGroups,
   sortQuickLinkGroups,
@@ -190,6 +191,20 @@ assert.equal(
 {
   const unchanged = renameQuickLink(links, "link-2", "  Beta ");
   assert.equal(unchanged[1], links[1], "unchanged trimmed name preserves item identity");
+}
+
+{
+  const withIcon = setQuickLinkGroupIcon(groups, "group-b", "terminal");
+  assert.equal(withIcon[0], groups[0], "other groups keep their identity");
+  assert.deepEqual(withIcon[1], {
+    id: "group-b",
+    name: "Beta Group",
+    order: 1,
+    icon: "terminal",
+  });
+
+  const cleared = setQuickLinkGroupIcon(withIcon, "group-b", undefined);
+  assert.equal("icon" in cleared[1], false, "clearing icon removes the property cleanly");
 }
 
 console.log("[PASS] quick link groups tests");

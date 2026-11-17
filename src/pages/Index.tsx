@@ -8,7 +8,12 @@ import SettingsModal from "@/components/SettingsModal";
 import UnifiedSettings from "@/components/UnifiedSettings";
 import { SearchEngine, defaultSearchEngines, mergeBuiltinEngines } from "@/lib/defaultSearchEngines";
 import { getStoredValue, setStoredValue, migrateLocalStorageToSync } from "@/lib/storage";
-import { deleteQuickLinkGroup, renameQuickLink, renameQuickLinkGroup } from "@/lib/quickLinkGroups";
+import {
+  deleteQuickLinkGroup,
+  renameQuickLink,
+  renameQuickLinkGroup,
+  setQuickLinkGroupIcon,
+} from "@/lib/quickLinkGroups";
 import { buildDockSections } from "@/lib/macosDock";
 import { ensureUrlHasProtocol } from "@/lib/url";
 import { buildSearchEngineUrl } from "@/lib/searchEngineUrl";
@@ -376,6 +381,10 @@ const Index = () => {
     setQuickLinkGroups(groups => renameQuickLinkGroup(groups, groupId, name));
   };
 
+  const changeGroupIcon = (groupId: string, icon: string | undefined) => {
+    setQuickLinkGroups(groups => setQuickLinkGroupIcon(groups, groupId, icon));
+  };
+
   // 删除分组时组内链接回到"未分组"，不会连带丢失
   const deleteGroup = (groupId: string) => {
     const next = deleteQuickLinkGroup(quickLinkGroups, quickLinks, groupId);
@@ -582,6 +591,7 @@ const Index = () => {
           onGroupsChange={setQuickLinkGroups}
           onAddGroup={addGroup}
           onRenameGroup={renameGroup}
+          onChangeGroupIcon={changeGroupIcon}
           onDeleteGroup={deleteGroup}
           onOpenLaunchpad={(scope) => {
             setLaunchpadScope(scope ?? null);

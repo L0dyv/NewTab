@@ -45,6 +45,23 @@ export function renameQuickLinkGroup(groups, groupId, name) {
   );
 }
 
+export function setQuickLinkGroupIcon(groups, groupId, icon) {
+  const normalized = typeof icon === "string" && icon.trim() ? icon.trim() : undefined;
+  return groups.map((group) => {
+    if (group.id !== groupId) return group;
+    if (group.icon === normalized) return group;
+    if (normalized === undefined) {
+      const next = { ...group };
+      delete next.icon;
+      return next;
+    }
+    return {
+      ...group,
+      icon: normalized,
+    };
+  });
+}
+
 export function sortQuickLinkGroups(groups) {
   return [...groups].sort((a, b) => a.order - b.order);
 }

@@ -58,6 +58,7 @@ interface DockBarProps {
   onGroupsChange: (groups: QuickLinkGroup[]) => void;
   onAddGroup: (name: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
+  onChangeGroupIcon: (groupId: string, icon: string | undefined) => void;
   onDeleteGroup: (groupId: string) => void;
   /** scope 为分组 key 时只展示该组，省略则展示全部 */
   onOpenLaunchpad: (scope?: string) => void;
@@ -79,6 +80,7 @@ export default function DockBar({
   onGroupsChange,
   onAddGroup,
   onRenameGroup,
+  onChangeGroupIcon,
   onDeleteGroup,
   onOpenLaunchpad,
   onRenameLink,
@@ -502,7 +504,7 @@ export default function DockBar({
       )}
 
       <div
-        className="liquid-glass liquid-glass-floating liquid-glass-dock flex items-end gap-3.5 rounded-[24px] px-3.5 py-2.5"
+        className="liquid-glass liquid-glass-floating liquid-glass-dock flex items-end gap-2.5 rounded-[19px] p-2"
         onMouseMove={handlePointerMove}
         onMouseEnter={handleDockEnter}
       >
@@ -530,10 +532,8 @@ export default function DockBar({
           onDragCancel={() => suppressMagnification(false)}
         >
           <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-end gap-3.5">
-              {sortedGroups.map((group) => {
-                const section = sections.find((s) => s.group?.id === group.id);
-                return (
+            <div className="flex items-end gap-2.5">
+              {sortedGroups.map((group) => (
                   <DockGroupItem
                     key={group.id}
                     group={group}
@@ -544,11 +544,11 @@ export default function DockBar({
                     onExpand={() => handleExpand(group.id)}
                     onHover={() => handleHover(group.id)}
                     onRename={onRenameGroup}
+                    onChangeIcon={onChangeGroupIcon}
                     onDelete={onDeleteGroup}
                     onEditingChange={suppressMagnification}
                   />
-                );
-              })}
+              ))}
             </div>
           </SortableContext>
         </DndContext>
@@ -556,7 +556,7 @@ export default function DockBar({
 
         {/* 分隔线只在左侧确实有分组时才画，否则会孤零零挂在 Dock 开头 */}
         {(ungroupedCount > 0 || sortedGroups.length > 0) && (
-          <div className="mx-1 h-9 w-px self-center bg-foreground/15" />
+          <div className="mx-0.5 h-7 w-px self-center bg-foreground/[0.14]" />
         )}
 
         {/* 新建分组 */}
@@ -586,7 +586,7 @@ export default function DockBar({
 
           <div className="dock-item flex">
             {isAdding ? (
-              <div className="flex h-[42px] w-[42px] items-center justify-center gap-1 rounded-[12px] border border-dashed border-border">
+              <div className="dock-tile flex h-[42px] w-[42px] items-center justify-center gap-1 rounded-[11px]">
                 <button
                   type="button"
                   onClick={commitAddGroup}
@@ -616,13 +616,12 @@ export default function DockBar({
                   suppressMagnification(true);
                 }}
                 className={cn(
-                  "flex h-[42px] w-[42px] items-center justify-center rounded-[12px]",
-                  "border border-dashed border-border text-muted-foreground/70",
-                  "hover:border-foreground/40 hover:text-foreground",
+                  "dock-tile flex h-[42px] w-[42px] items-center justify-center rounded-[11px]",
+                  "text-foreground/70 hover:text-foreground transition-colors",
                   "outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 )}
               >
-                <Plus className="h-5 w-5" />
+                <Plus className="h-[19px] w-[19px]" strokeWidth={1.75} />
               </button>
             )}
           </div>
@@ -648,12 +647,12 @@ export default function DockBar({
               }}
               onMouseEnter={() => clearTimers()}
               className={cn(
-                "liquid-glass flex h-[42px] w-[42px] items-center justify-center rounded-[12px]",
-                "text-foreground/75 hover:text-foreground",
+                "dock-tile flex h-[42px] w-[42px] items-center justify-center rounded-[11px]",
+                "text-foreground/75 hover:text-foreground transition-colors",
                 "outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
             >
-              <LayoutGrid className="h-6 w-6" strokeWidth={1.75} />
+              <LayoutGrid className="h-[19px] w-[19px]" strokeWidth={1.75} />
             </button>
           </div>
         </div>

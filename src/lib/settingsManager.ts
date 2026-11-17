@@ -190,6 +190,9 @@ export function validateSettings(data: unknown): { valid: boolean; error?: strin
             if (typeof group.order !== 'number') {
                 return { valid: false, error: '无效的分组配置：缺少 order' };
             }
+            if (group.icon !== undefined && typeof group.icon !== 'string') {
+                return { valid: false, error: '无效的分组配置：icon 必须是字符串' };
+            }
         }
     }
 

@@ -12,6 +12,7 @@ import {
 import { useI18n } from "@/hooks/useI18n";
 import { cn } from "@/lib/utils";
 import GroupTile from "./GroupTile";
+import GroupIconPickerSubmenu from "./GroupIconPickerSubmenu";
 import DockTooltip from "./DockTooltip";
 import type { QuickLinkGroup } from "@/lib/types";
 
@@ -26,6 +27,7 @@ export interface DockGroupItemProps {
   onExpand: () => void;
   onHover: () => void;
   onRename?: (groupId: string, name: string) => void;
+  onChangeIcon?: (groupId: string, icon: string | undefined) => void;
   onDelete?: (groupId: string) => void;
   onEditingChange?: (editing: boolean) => void;
 }
@@ -46,6 +48,7 @@ export default function DockGroupItem({
   onExpand,
   onHover,
   onRename,
+  onChangeIcon,
   onDelete,
   onEditingChange,
 }: DockGroupItemProps) {
@@ -148,9 +151,9 @@ export default function DockGroupItem({
             onHover();
           }}
           onBlur={() => setHovered(false)}
-          className="rounded-[12px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-[11px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <GroupTile name={label} />
+          <GroupTile group={group} />
         </button>
       </div>
 
@@ -159,7 +162,7 @@ export default function DockGroupItem({
           顶离垂直中心。macOS 上这个点画在 Dock 的内边距里，不推动图标。*/}
       <span
         className={cn(
-          "pointer-events-none absolute inset-x-0 -bottom-[7px] mx-auto h-1 w-1 rounded-full",
+          "pointer-events-none absolute inset-x-0 -bottom-[6px] mx-auto h-1 w-1 rounded-full",
           "transition-opacity duration-150",
           isOpen ? "dock-open-dot bg-foreground/60 opacity-100" : "opacity-0"
         )}
@@ -173,11 +176,15 @@ export default function DockGroupItem({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>{body}</ContextMenuTrigger>
-      <ContextMenuContent>
+      <ContextMenuContent collisionPadding={12}>
         <ContextMenuItem onClick={startRename}>
           <Pencil className="mr-2 h-4 w-4" />
           {t("quickLinks.renameGroup")}
         </ContextMenuItem>
+        <GroupIconPickerSubmenu
+          group={group}
+          onSelectIcon={(icon) => onChangeIcon?.(group.id, icon)}
+        />
         <ContextMenuSeparator />
         <ContextMenuItem
           onClick={confirmDelete}
