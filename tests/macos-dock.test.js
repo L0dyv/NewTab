@@ -6,6 +6,10 @@ import {
   fanCapacity,
   stackGridColumns,
   groupInitial,
+  GROUP_ICON_KEYS,
+  GROUP_ICON_INITIAL,
+  inferGroupIconKey,
+  resolveGroupTileVisual,
   filterSections,
   paginateLaunchpad,
   launchpadLayout,
@@ -379,6 +383,54 @@ const makeLinks = (n, prefix = "x") =>
     assert.ok(now >= previous, `capacity must not shrink as height grows (at ${h}px)`);
     previous = now;
   }
+}
+
+// --- group icons & inference -----------------------------------------------
+
+{
+  assert.equal(GROUP_ICON_KEYS.length, 28, "curated picker holds a 7x4 grid of 28 icons");
+  assert.equal(
+    new Set(GROUP_ICON_KEYS).size,
+    GROUP_ICON_KEYS.length,
+    "every curated icon key is unique"
+  );
+  assert.ok(
+    !GROUP_ICON_KEYS.includes("inbox"),
+    "inbox stays reserved for the Ungrouped slot"
+  );
+
+  // 拉丁词元按边界匹配："Mail" 与 "Entertainment" 里虽含子串 "ai"，不能误判成 AI
+  assert.equal(inferGroupIconKey("Mail"), "mail", "Mail resolves to mail, never ai");
+  assert.equal(inferGroupIconKey("AI"), "bot", "AI resolves to bot");
+  assert.equal(inferGroupIconKey("University"), "graduation", "University resolves to graduation");
+  assert.equal(inferGroupIconKey("Dev"), "code", "Dev resolves to code");
+  assert.equal(inferGroupIconKey("Infra"), "cloud", "Infra resolves to cloud");
+  assert.equal(inferGroupIconKey("Media"), "tv", "Media resolves to tv");
+  assert.equal(inferGroupIconKey("English"), "book", "English resolves to book");
+  assert.equal(inferGroupIconKey("Entertainment"), "gamepad", "Entertainment resolves to gamepad");
+  assert.equal(inferGroupIconKey("常用工具"), "wrench", "CJK keywords resolve cleanly");
+  assert.equal(inferGroupIconKey("LD"), "folder", "arbitrary names fall back to folder");
+
+  assert.deepEqual(
+    resolveGroupTileVisual(null),
+    { kind: "icon", iconKey: "inbox" },
+    "ungrouped slot always uses inbox"
+  );
+  assert.deepEqual(
+    resolveGroupTileVisual({ id: "g1", name: "dev", order: 0, icon: GROUP_ICON_INITIAL }),
+    { kind: "initial", glyph: "D" },
+    "explicit initial mode renders upper-cased sans-serif initial"
+  );
+  assert.deepEqual(
+    resolveGroupTileVisual({ id: "g1", name: "LD", order: 0, icon: "layers" }),
+    { kind: "icon", iconKey: "layers" },
+    "explicit curated icon overrides name inference"
+  );
+  assert.deepEqual(
+    resolveGroupTileVisual({ id: "g1", name: "Mail", order: 0, icon: "non-existent" }),
+    { kind: "icon", iconKey: "mail" },
+    "unknown icon key gracefully falls back to name inference"
+  );
 }
 
 console.log("[PASS] macos dock tests");

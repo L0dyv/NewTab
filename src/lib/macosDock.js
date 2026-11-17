@@ -105,6 +105,181 @@ export function groupInitial(name) {
 }
 
 /**
+ * 供分组自选的精选单色线性图标键值（4 行 x 7 列 = 28 枚）。
+ * 前排为无特定语义的抽象容器图标，组内内容混杂时也自然百搭；
+ * 后排为高频日常领域图标。未分组专用的 "inbox" 不在此列，保持唯一语义。
+ */
+export const GROUP_ICON_KEYS = [
+  "folder",
+  "layers",
+  "bookmark",
+  "star",
+  "archive",
+  "box",
+  "tag",
+  "hash",
+  "compass",
+  "sparkles",
+  "bot",
+  "terminal",
+  "code",
+  "cloud",
+  "mail",
+  "message",
+  "book",
+  "graduation",
+  "file-text",
+  "briefcase",
+  "globe",
+  "tv",
+  "gamepad",
+  "music",
+  "palette",
+  "wrench",
+  "shopping",
+  "wallet",
+];
+
+/** 显式选择使用无饰线首字母代替图形图标 */
+export const GROUP_ICON_INITIAL = "initial";
+
+const GROUP_ICON_SET = new Set(GROUP_ICON_KEYS);
+
+const GROUP_ICON_RULES = [
+  {
+    key: "mail",
+    latin: ["mail", "email", "gmail", "outlook", "inbox", "post"],
+    cjk: ["邮箱", "邮件", "信箱"],
+  },
+  {
+    key: "bot",
+    latin: ["ai", "llm", "gpt", "chatgpt", "claude", "gemini", "agent", "model", "prompt"],
+    cjk: ["智能", "大模型", "模型"],
+  },
+  {
+    key: "graduation",
+    latin: ["uni", "university", "college", "school", "edu", "education", "academic", "course", "paper", "arxiv", "scholar", "math"],
+    cjk: ["大学", "学校", "高校", "学术", "课程", "论文", "科研", "数学", "学习", "教务"],
+  },
+  {
+    key: "code",
+    latin: ["dev", "code", "coding", "github", "git", "repo", "program", "programming", "frontend", "backend", "api", "sdk"],
+    cjk: ["开发", "代码", "编程", "源码", "工程", "技术"],
+  },
+  {
+    key: "cloud",
+    latin: ["infra", "cloud", "server", "ops", "devops", "deploy", "vps", "nas", "docker", "k8s", "network", "dns"],
+    cjk: ["云", "服务器", "运维", "部署", "基础设施", "节点", "网络"],
+  },
+  {
+    key: "terminal",
+    latin: ["cli", "shell", "terminal", "linux", "ssh", "bash"],
+    cjk: ["终端", "命令行"],
+  },
+  {
+    key: "tv",
+    latin: ["media", "video", "videos", "stream", "streaming", "movie", "movies", "film", "tv", "anime", "youtube", "bilibili"],
+    cjk: ["影音", "视频", "影视", "电影", "番剧", "动漫", "直播"],
+  },
+  {
+    key: "gamepad",
+    latin: ["ent", "entertainment", "game", "games", "gaming", "steam", "play", "fun"],
+    cjk: ["娱乐", "游戏", "摸鱼", "休闲"],
+  },
+  {
+    key: "music",
+    latin: ["music", "audio", "song", "songs", "podcast", "spotify", "radio"],
+    cjk: ["音乐", "歌单", "播客", "音频", "听书"],
+  },
+  {
+    key: "book",
+    latin: ["eng", "english", "lang", "language", "book", "books", "read", "reading", "novel", "wiki", "dict"],
+    cjk: ["英语", "外语", "阅读", "读书", "书籍", "小说", "词典", "百科"],
+  },
+  {
+    key: "file-text",
+    latin: ["doc", "docs", "note", "notes", "blog", "blogs", "article", "news", "rss", "write", "writing"],
+    cjk: ["文档", "笔记", "博客", "资讯", "文章", "写作", "资料"],
+  },
+  {
+    key: "briefcase",
+    latin: ["work", "office", "job", "career", "team", "project", "corp", "biz"],
+    cjk: ["工作", "办公", "职场", "项目", "公司", "业务"],
+  },
+  {
+    key: "palette",
+    latin: ["design", "ui", "ux", "art", "figma", "color", "font", "photo", "image"],
+    cjk: ["设计", "美术", "灵感", "配色", "字体", "图片", "摄影"],
+  },
+  {
+    key: "message",
+    latin: ["social", "chat", "forum", "bbs", "community", "sns", "reddit", "twitter"],
+    cjk: ["社交", "社区", "论坛", "聊天", "讨论"],
+  },
+  {
+    key: "wrench",
+    latin: ["tool", "tools", "util", "utils", "utility", "kit", "convert"],
+    cjk: ["工具", "实用", "在线工具", "效率"],
+  },
+  {
+    key: "shopping",
+    latin: ["shop", "shopping", "store", "buy", "mall", "deal"],
+    cjk: ["购物", "商城", "电商", "海淘"],
+  },
+  {
+    key: "wallet",
+    latin: ["finance", "bank", "pay", "money", "crypto", "stock", "invest", "bill", "usage"],
+    cjk: ["财务", "金融", "银行", "账单", "理财", "股票", "用量"],
+  },
+  {
+    key: "star",
+    latin: ["fav", "favorite", "favorites", "star", "top", "daily", "often", "pinned"],
+    cjk: ["常用", "精选", "高频", "日常", "置顶", "收藏"],
+  },
+];
+
+/**
+ * 按分组名称推断默认图标键值；拉丁词按完整词元匹配（避免 "Mail" 误中 "ai"），
+ * 未命中任何规则时统一回退为 "folder"。
+ */
+export function inferGroupIconKey(name) {
+  const raw = (name || "").trim().toLowerCase();
+  if (!raw) return "folder";
+
+  const latinTokens = new Set(raw.split(/[^a-z0-9]+/).filter(Boolean));
+
+  for (const rule of GROUP_ICON_RULES) {
+    if (rule.latin.some((word) => latinTokens.has(word))) {
+      return rule.key;
+    }
+    if (rule.cjk.some((phrase) => raw.includes(phrase))) {
+      return rule.key;
+    }
+  }
+
+  return "folder";
+}
+
+/**
+ * 解析分组在 Dock 方块上应渲染的视觉形态。
+ */
+export function resolveGroupTileVisual(group) {
+  if (!group) {
+    return { kind: "icon", iconKey: "inbox" };
+  }
+
+  if (group.icon === GROUP_ICON_INITIAL) {
+    return { kind: "initial", glyph: groupInitial(group.name) };
+  }
+
+  if (group.icon && GROUP_ICON_SET.has(group.icon)) {
+    return { kind: "icon", iconKey: group.icon };
+  }
+
+  return { kind: "icon", iconKey: inferGroupIconKey(group.name) };
+}
+
+/**
  * Launchpad 的筛选：对名称与网址做大小写无关的子串匹配，
  * 分组名命中时保留该分组下的全部链接。筛选后丢弃空区段。
  */

@@ -34,13 +34,18 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
   deleteQuickLinkGroup,
   renameQuickLinkGroup,
   reorderQuickLinkGroups,
+  setQuickLinkGroupIcon,
 } from "@/lib/quickLinkGroups";
+import { resolveGroupTileVisual } from "@/lib/macosDock";
+import GroupIconGlyph from "@/components/macos/groupIcons";
+import GroupIconPickerSubmenu from "@/components/macos/GroupIconPickerSubmenu";
 
 interface GroupTabsProps {
   groups: QuickLinkGroup[];
@@ -64,6 +69,7 @@ function SortableGroupTab({
   onRenameConfirm,
   onRenameCancel,
   onStartRename,
+  onChangeIcon,
   onDeleteRequest,
   renameInputRef,
   t,
@@ -79,12 +85,14 @@ function SortableGroupTab({
   onRenameConfirm: () => void;
   onRenameCancel: () => void;
   onStartRename: () => void;
+  onChangeIcon: (icon: string | undefined) => void;
   onDeleteRequest: () => void;
   renameInputRef: React.RefObject<HTMLInputElement>;
   t: (key: string) => string;
 }) {
   const { setNodeRef, attributes, listeners, transform, transition } = useSortable({ id: group.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const visual = resolveGroupTileVisual(group);
 
   if (isRenaming) {
     return (
@@ -123,13 +131,18 @@ function SortableGroupTab({
             className={tabClass(isActive)}
             onClick={onTabClick}
           >
+            {visual.kind === "icon" && (
+              <GroupIconGlyph iconKey={visual.iconKey} size={13} />
+            )}
             {group.name}({linkCount})
           </button>
         </ContextMenuTrigger>
-        <ContextMenuContent className="min-w-[120px]">
+        <ContextMenuContent collisionPadding={12} className="min-w-[140px]">
           <ContextMenuItem onSelect={onStartRename}>
             {t('quickLinks.renameGroup')}
           </ContextMenuItem>
+          <GroupIconPickerSubmenu group={group} onSelectIcon={onChangeIcon} />
+          <ContextMenuSeparator />
           <ContextMenuItem
             onSelect={onDeleteRequest}
             className="text-destructive focus:text-destructive"
@@ -270,6 +283,7 @@ export default function GroupTabs({
               onRenameConfirm={renameGroup}
               onRenameCancel={() => { setRenamingId(null); setRenamingName(""); }}
               onStartRename={() => { setRenamingId(group.id); setRenamingName(group.name); }}
+              onChangeIcon={(icon) => onGroupsChange(setQuickLinkGroupIcon(groups, group.id, icon))}
               onDeleteRequest={() => setDeleteConfirmId(group.id)}
               renameInputRef={renameInputRef}
               t={t}

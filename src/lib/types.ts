@@ -13,6 +13,7 @@ export interface QuickLinkGroup {
     id: string;
     name: string;
     order: number;
+    icon?: string;
     collapsed?: boolean;
 }
 

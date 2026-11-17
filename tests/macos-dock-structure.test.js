@@ -96,6 +96,13 @@ const css = read("../src/index.css");
 {
   assert.match(css, /\.liquid-glass\s*\{/, "the liquid glass skin is defined");
   assert.match(css, /\.dark \.liquid-glass\s*\{/, "the liquid glass skin has a dark variant");
+  assert.match(css, /\.dock-tile\s*\{/, "the dock tile surface is defined");
+  assert.match(css, /\.dark \.dock-tile\s*\{/, "the dock tile surface has a dark variant");
+  assert.doesNotMatch(
+    dockBar,
+    /border-dashed/,
+    "the add-group slot uses the same solid dock tile material instead of a dashed wireframe"
+  );
   assert.match(
     css,
     /-webkit-backdrop-filter:/,
