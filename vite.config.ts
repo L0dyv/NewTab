@@ -25,7 +25,12 @@ export default defineConfig(() => ({
           dest: '.',
           transform: (content) => {
             const manifest = JSON.parse(content.toString());
-            manifest.version = pkg.version;
+            manifest.version = pkg.version.split('-')[0];
+            if (pkg.version.includes('-')) {
+              manifest.version_name = pkg.version;
+            } else {
+              delete manifest.version_name;
+            }
             return JSON.stringify(manifest, null, 2);
           }
         },
